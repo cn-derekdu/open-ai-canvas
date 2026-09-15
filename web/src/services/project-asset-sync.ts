@@ -308,8 +308,9 @@ async function generationOutputAsset(input: Parameters<MaterializeGenerationTask
             ? {
                   url: await resolveMediaUrl(video.storageKey, video.dataUrl),
                   storageKey: video.storageKey,
-                  width: video.width || 0,
-                  height: video.height || 0,
+                  // 与后端素材输出策略一致：宽高未知时兜底 1，避免素材解析因 0 失败。
+                  width: video.width || 1,
+                  height: video.height || 1,
                   durationMs: video.durationMs,
                   bytes: video.bytes || 0,
                   mimeType: video.mimeType || "video/mp4",
@@ -340,8 +341,9 @@ async function generationOutputAsset(input: Parameters<MaterializeGenerationTask
             data: {
                 url: stored.url,
                 storageKey: stored.storageKey,
-                width: stored.width || 0,
-                height: stored.height || 0,
+                // 与后端素材输出策略一致：宽高未知时兜底 1，避免素材解析因 0 失败。
+                width: stored.width || 1,
+                height: stored.height || 1,
                 durationMs: stored.durationMs,
                 bytes: stored.bytes,
                 mimeType: stored.mimeType || "video/mp4",
