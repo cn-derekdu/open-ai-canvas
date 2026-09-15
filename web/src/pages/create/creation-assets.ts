@@ -250,8 +250,9 @@ export function creationImageAsset({ title, uploaded, metadata }: { title: strin
         data: {
             dataUrl: uploaded.url,
             storageKey: uploaded.storageKey,
-            width: uploaded.width,
-            height: uploaded.height,
+            // 与视频素材一致：宽高缺失时兜底 1，保证写入的记录一定能被解析。
+            width: uploaded.width || 1,
+            height: uploaded.height || 1,
             bytes: uploaded.bytes,
             mimeType: uploaded.mimeType || "image/png",
         },
@@ -289,8 +290,9 @@ export function creationVideoAsset({ title, uploaded, metadata }: { title: strin
         data: {
             url: uploaded.url,
             storageKey: uploaded.storageKey,
-            width: uploaded.width || 0,
-            height: uploaded.height || 0,
+            // 远程视频常拿不到真实宽高；与后端输出素材的策略一致，兜底 1 而不是 0，避免解析素材时报错。
+            width: uploaded.width || 1,
+            height: uploaded.height || 1,
             durationMs: uploaded.durationMs,
             bytes: uploaded.bytes,
             mimeType: uploaded.mimeType || "video/mp4",

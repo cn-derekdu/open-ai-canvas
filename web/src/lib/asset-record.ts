@@ -54,8 +54,8 @@ export function parseAssetRecord(value: unknown): Asset {
         const parsed = {
             dataUrl: requireString(data, "dataUrl"),
             storageKey: optionalString(data, "storageKey"),
-            width: requirePositiveNumber(data, "width"),
-            height: requirePositiveNumber(data, "height"),
+            width: requireAssetDimension(data, "width"),
+            height: requireAssetDimension(data, "height"),
             bytes: requireNonNegativeNumber(data, "bytes"),
             mimeType: requireMediaMimeType(data, "image"),
         };
@@ -66,8 +66,8 @@ export function parseAssetRecord(value: unknown): Asset {
         const parsed = {
             url: requireString(data, "url"),
             storageKey: optionalString(data, "storageKey"),
-            width: requirePositiveNumber(data, "width"),
-            height: requirePositiveNumber(data, "height"),
+            width: requireAssetDimension(data, "width"),
+            height: requireAssetDimension(data, "height"),
             durationMs: optionalNonNegativeNumber(data, "durationMs"),
             hasAudio: optionalBoolean(data, "hasAudio"),
             bytes: requireNonNegativeNumber(data, "bytes"),
@@ -170,10 +170,14 @@ function requireNonNegativeNumber(record: Record<string, unknown>, key: string):
     return value;
 }
 
-function requirePositiveNumber(record: Record<string, unknown>, key: string): number {
-    const value = requireNonNegativeNumber(record, key);
-    if (value === 0) throw new Error(`素材字段 ${key} 必须大于 0`);
-    return value;
+/**
+ * 素材宽高解析。
+ *
+ * 生成结果（尤其是远程视频）经常拿不到真实宽高，历史上会被写成 0；后端输出素材时同样把
+ * 0 归一化为 1。这里保持一致，避免一条宽高未知的记录让整个素材列表解析失败。
+ */
+function requireAssetDimension(record: Record<string, unknown>, key: string): number {
+    return Math.max(1, requireNonNegativeNumber(record, key));
 }
 
 function requireConcreteMimeType(record: Record<string, unknown>): string {
