@@ -136,3 +136,13 @@
 - Git 提交说明使用 `<type>(<scope>): <业务模块> - <变更摘要>`，`type` 为 `feat|fix|refactor|perf|docs|test|build|ci|chore|revert`。
 
 交付前至少检查：改动是否聚焦、调用方和类型是否同步、错误/权限/数据归属是否完整、必要文档是否同步、验证是否如实说明、是否留下密钥或本地数据。
+
+## 10. 个人二开线与上游同步（本 fork 专属）
+
+> 本节属于 `cn-derekdu` fork 的私有工作约定，不属于上游内容；不要向上游提交，也不要把本节带入 PR。
+
+- 触发词「更新到最新版」「同步上游」「更新到最新版并部署」时，按 [`scripts/upstream-sync-playbook.md`](scripts/upstream-sync-playbook.md) 执行完整流程：先只读分析上游差异并等用户确认，再 rebase、本地验证、`--force-with-lease` 推送，备份服务器后更新并做线上验证。
+- 远程角色固定：`origin` 是个人 fork（私有二开线，功能提交直接落在 `main`）；`upstream` 是 `ddcat-ai/open-ai-canvas`（只读）。面向上游的 PR 分支一律从 `upstream/main` 切出，避免把二开提交带进 PR。
+- 部署目标：`/opt/open-ai-canvas` 源码构建，主机端口 3001，Caddy 反代 `routerbox.cc`；`api.routerbox.cc` 属于 new-api 服务，禁止改动。
+- 数据库迁移没有 down 脚本，升级前必须先备份；升级后给出代码回滚与数据库恢复两条命令。
+- 冲突处理：公共逻辑以上游为准并保留二开意图；锁文件采用上游版本后重装；PR 已被合并导致的重复或空提交用 `git rebase --skip`。
