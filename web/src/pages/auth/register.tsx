@@ -3,7 +3,7 @@ import { App, Button, Checkbox, Divider, Input, Modal, Segmented } from "antd";
 import { ArrowRight, FileText, Info, LockKeyhole, Mail, TriangleAlert, UserRound } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { getAuthSession, getAuthSettings, linuxDOLoginURL, register } from "@/services/api/auth";
+import { getAuthSession, getAuthSettings, getFeatureAvailability, linuxDOLoginURL, register, sendRegistrationEmailCode } from "@/services/api/auth";
 import { LinuxDOIcon } from "./auth-scene";
 import { ApiError } from "@/services/api/request";
 import { VerificationFields } from "@/components/auth/verification-fields";
@@ -16,9 +16,28 @@ export default function RegisterPage() {
     const navigate = useNavigate();
     const [params] = useSearchParams();
     // /register?invite=CODE 来自推广邀请链接，注册成功后由后端建立邀请关系。
-    const inviteCode = (params.get("invite") || "").trim().toUpperCase();
     const { message } = App.useApp();
     const brandName = useAppearanceStore((state) => state.appearance.brandName) || "平台";
+    const inviteCode = (params.get("invite") || "").trim().toUpperCase();
+    // 邀请链接可能来自推广已关闭的时期：先查公开开关，避免用户误以为绑定成功。
+    const [promotionEnabled, setPromotionEnabled] = useState(true);
+
+    useEffect(() => {
+        if (!inviteCode) return;
+        let cancelled = false;
+        void getFeatureAvailability()
+            .then(({ features }) => {
+                if (cancelled) return;
+                if (!features.promotionEnabled) {
+                    setPromotionEnabled(false);
+                    message.warning("推广邀请暂时未启用");
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [inviteCode, message]);
     const [settings, setSettings] = useState<AuthSettings | null>(null);
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
@@ -76,7 +95,7 @@ export default function RegisterPage() {
         setSubmitting(true);
         try {
             if (!settings?.firstUser && !verification.ticket) throw new Error("请先获取本次注册验证码");
-            await register({ username, ...(settings?.firstUser ? { email } : verification), displayName, password, acceptedTerms: agreementAccepted, inviteCode });
+            await register({ username, ...(settings?.firstUser ? { email } : verification), displayName, password, acceptedTerms: agreementAccepted, inviteCode: promotionEnabled ? inviteCode : undefined });
             const { applyUserSession } = await import("@/lib/user-session");
             await applyUserSession(await getAuthSession());
             if (!settings?.firstUser) window.sessionStorage.setItem("infinite-canvas:model-setup-guide", "1");

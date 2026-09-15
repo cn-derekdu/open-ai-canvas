@@ -52,7 +52,7 @@ function buildNav(features: FeatureAvailability, isAdmin: boolean): { groups: Wo
         {
             heading: "资源与工具",
             // 上游把积分入口移到用户卡片菜单；这里只保留二开的推广中心入口。
-            items: [{ ...toolItem("assets", "/assets"), title: "资产" }, { ...toolItem("skills", "/skills"), title: "技能" }, ...(features.pluginCenterEnabled || isAdmin ? [{ ...toolItem("plugins", "/plugins"), title: "插件" }] : []), ...(features.creditsEnabled ? [toolItem("promotion", "/promotion")] : [])],
+            items: [{ ...toolItem("assets", "/assets"), title: "资产" }, { ...toolItem("skills", "/skills"), title: "技能" }, ...(features.pluginCenterEnabled || isAdmin ? [{ ...toolItem("plugins", "/plugins"), title: "插件" }] : []), ...(features.promotionEnabled ? [toolItem("promotion", "/promotion")] : [])],
         },
         ...(features.taskCenterEnabled ? [{ items: [{ ...toolItem("tasks", "/tasks"), title: "创作历史", icon: HistoryIcon }] }] : []),
     ];
