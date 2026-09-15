@@ -141,7 +141,7 @@ export const router = createBrowserRouter([
                 path: "/promotion",
                 element: (
                     <RequireAuth>
-                        <RequireFeature feature="creditsEnabled">{deferred(<PromotionPage />)}</RequireFeature>
+                        <RequireFeature feature="promotionEnabled">{deferred(<PromotionPage />)}</RequireFeature>
                     </RequireAuth>
                 ),
             },

@@ -3,6 +3,7 @@ import { http } from "@/services/api/request";
 // 推广中心所有金额字段的单位都是微积分（1 积分 = 1_000_000 微积分），
 // 展示统一走 formatCredits，避免各页面各算一套。
 export type PromotionOverview = {
+    enabled: boolean;
     inviteCode: string;
     ratioBasisPoints: number;
     freezeDays: number;
@@ -84,7 +85,6 @@ export type PromotionWithdrawalPage = {
 };
 
 export type PromotionPolicy = {
-    enabled: boolean;
     ratioBasisPoints: number;
     freezeDays: number;
     minWithdrawalMicrocredits: number;
