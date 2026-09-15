@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Button, Input, InputNumber, Modal, Switch, Table, Tag } from "antd";
+import { App, Button, Input, InputNumber, Modal, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
 import { PaginationBar, TableSurface } from "@/components/layout/workspace-page";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { formatCredits } from "@/constant/credits";
+import { useUserStore } from "@/stores/use-user-store";
 import {
     getAdminPromotionPolicy,
     listAdminPromotionWithdrawals,
@@ -40,9 +41,9 @@ function formatDateTime(value?: string) {
 
 export default function AdminPromotionPage() {
     const { message } = App.useApp();
+    const promotionEnabled = useUserStore((state) => state.features.promotionEnabled);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [enabled, setEnabled] = useState(true);
     const [ratioPercent, setRatioPercent] = useState<number | null>(3);
     const [freezeDays, setFreezeDays] = useState<number | null>(3);
     const [minWithdrawCredits, setMinWithdrawCredits] = useState<number | null>(10);
@@ -61,7 +62,6 @@ export default function AdminPromotionPage() {
         try {
             const result = await getAdminPromotionPolicy();
             const policy = result.policy;
-            setEnabled(policy.enabled);
             setRatioPercent(policy.ratioBasisPoints / 100);
             setFreezeDays(policy.freezeDays);
             setMinWithdrawCredits(policy.minWithdrawalMicrocredits / MICROCREDITS_PER_CREDIT);
@@ -108,7 +108,6 @@ export default function AdminPromotionPage() {
         setSaving(true);
         try {
             await updateAdminPromotionPolicy({
-                enabled,
                 ratioBasisPoints: Math.round(ratio * 100),
                 freezeDays: Math.round(days),
                 minWithdrawalMicrocredits: Math.round(Number(minWithdrawCredits ?? 0) * MICROCREDITS_PER_CREDIT),
@@ -221,8 +220,10 @@ export default function AdminPromotionPage() {
                         <p className="mt-1 text-[var(--fs-caption)] text-foreground/62">比例按充值入账积分计算；冻结期满自动转为可用返佣。</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-[var(--fs-caption)] text-foreground/62">启用推广中心</span>
-                        <Switch checked={enabled} onChange={setEnabled} />
+                        <Tag color={promotionEnabled ? "green" : "default"}>{promotionEnabled ? "已启用" : "未启用"}</Tag>
+                        <span className="text-[var(--fs-caption)] text-foreground/62">
+                            开启/关闭请到「系统配置 → 功能开放」
+                        </span>
                     </div>
                 </div>
 

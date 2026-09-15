@@ -115,12 +115,15 @@ export default function PromotionPage() {
 
     // 可用返佣为 0 时资金操作没有意义，但必须说明原因，避免用户误判为按钮失效。
     const availableCredits = overview?.availableMicrocredits ?? 0;
-    const canOperateCommission = Boolean(overview) && availableCredits > 0;
+    // 推广中心被管理员关闭时，资金按钮必须停用并说明原因，避免用户以为余额被吞。
+    const canOperateCommission = Boolean(overview) && Boolean(overview?.enabled) && availableCredits > 0;
     const actionHint = !overview
         ? "推广数据加载中"
-        : availableCredits > 0
-          ? undefined
-          : `暂无可用返佣：好友充值后返佣先冻结 ${overview.freezeDays} 天，解冻后才能转入或提现`;
+        : !overview.enabled
+          ? "推广中心暂未开放，请联系管理员"
+          : availableCredits > 0
+            ? undefined
+            : `暂无可用返佣：好友充值后返佣先冻结 ${overview.freezeDays} 天，解冻后才能转入或提现`;
 
     const loadOverview = useCallback(async () => {
         setLoading(true);
@@ -364,6 +367,12 @@ export default function PromotionPage() {
 
     return (
         <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 p-4 md:p-6">
+            {overview && !overview.enabled ? (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[var(--fs-caption)] text-amber-700 dark:text-amber-300">
+                    推广中心暂未开放：管理员在「系统配置 → 功能开放」中开启后，邀请返佣与提现才会生效。
+                </div>
+            ) : null}
+
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                     <h1 className="text-[var(--fs-heading-lg)] font-semibold leading-7">推广中心</h1>
