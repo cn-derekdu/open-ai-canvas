@@ -20,15 +20,27 @@ import (
 const promotionPolicySettingKey = "promotion_policy"
 
 // PromotionPolicy 是推广中心可配置策略：返佣比例、冻结天数与提现门槛。
+// 是否开放推广中心由特性开关 promotionEnabled 决定，策略只回答“开启后怎么算”。
 type PromotionPolicy struct {
-	Enabled                   bool  `json:"enabled"`
 	RatioBPS                  int64 `json:"ratioBasisPoints"`
 	FreezeDays                int   `json:"freezeDays"`
 	MinWithdrawalMicrocredits int64 `json:"minWithdrawalMicrocredits"`
 }
 
 func defaultPromotionPolicy() PromotionPolicy {
-	return PromotionPolicy{Enabled: true, RatioBPS: 300, FreezeDays: 3, MinWithdrawalMicrocredits: 10 * CreditScale}
+	return PromotionPolicy{RatioBPS: 300, FreezeDays: 3, MinWithdrawalMicrocredits: 10 * CreditScale}
+}
+
+// promotionEnabled 是推广中心的唯一开关：入口可见性、邀请绑定、返佣结算与提现都以它为准。
+func (s *Service) promotionEnabled() (bool, error) {
+	features, err := s.FeatureAvailability()
+	if err != nil {
+		return false, err
+	}
+	if features == nil {
+		return false, nil
+	}
+	return features.PromotionEnabled, nil
 }
 
 func validatePromotionPolicy(policy PromotionPolicy) error {
@@ -90,7 +102,7 @@ func (s *Service) UpdatePromotionPolicy(actor *model.User, policy PromotionPolic
 	if err := s.repo.SaveSystemSetting(&setting); err != nil {
 		return PromotionPolicy{}, err
 	}
-	if err := s.appendAdminAudit(actor, "promotion.policy.update", "system", promotionPolicySettingKey, "更新推广策略", map[string]any{"ratioBasisPoints": policy.RatioBPS, "freezeDays": policy.FreezeDays, "enabled": policy.Enabled}); err != nil {
+	if err := s.appendAdminAudit(actor, "promotion.policy.update", "system", promotionPolicySettingKey, "更新推广策略", map[string]any{"ratioBasisPoints": policy.RatioBPS, "freezeDays": policy.FreezeDays, "minWithdrawalMicrocredits": policy.MinWithdrawalMicrocredits}); err != nil {
 		return PromotionPolicy{}, err
 	}
 	return s.promotionPolicy()
@@ -98,6 +110,7 @@ func (s *Service) UpdatePromotionPolicy(actor *model.User, policy PromotionPolic
 
 // PromotionOverview 是推广中心首屏指标，单位均为微积分。
 type PromotionOverview struct {
+	Enabled                   bool   `json:"enabled"`
 	InviteCode                string `json:"inviteCode"`
 	RatioBPS                  int64  `json:"ratioBasisPoints"`
 	FreezeDays                int    `json:"freezeDays"`
@@ -232,6 +245,13 @@ func (s *Service) BindInvitation(inviteeID string, code string, source string) e
 	if inviteeID == "" || code == "" {
 		return nil
 	}
+	enabled, err := s.promotionEnabled()
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return BadAuthRequest("推广邀请暂时未启用")
+	}
 	owner, err := s.repo.InviteCodeByCode(code)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return BadAuthRequest("邀请码不存在或已失效")
@@ -256,6 +276,10 @@ func (s *Service) BindInvitation(inviteeID string, code string, source string) e
 }
 
 func (s *Service) PromotionOverview(user *model.User) (*PromotionOverview, error) {
+	enabled, err := s.promotionEnabled()
+	if err != nil {
+		return nil, err
+	}
 	policy, err := s.promotionPolicy()
 	if err != nil {
 		return nil, err
@@ -277,6 +301,7 @@ func (s *Service) PromotionOverview(user *model.User) (*PromotionOverview, error
 		return nil, err
 	}
 	return &PromotionOverview{
+		Enabled:                   enabled,
 		InviteCode:                code,
 		RatioBPS:                  policy.RatioBPS,
 		FreezeDays:                policy.FreezeDays,
@@ -327,11 +352,18 @@ func (s *Service) SettlePaymentCommission(order *model.PaymentOrder) error {
 	if order == nil || order.UserID == "" || order.CreditsMicrocredits <= 0 {
 		return nil
 	}
+	enabled, err := s.promotionEnabled()
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return nil
+	}
 	policy, err := s.promotionPolicy()
 	if err != nil {
 		return err
 	}
-	if !policy.Enabled || policy.RatioBPS <= 0 {
+	if policy.RatioBPS <= 0 {
 		return nil
 	}
 	invitation, err := s.repo.InvitationForInvitee(order.UserID)
@@ -362,6 +394,13 @@ func (s *Service) SettlePaymentCommission(order *model.PaymentOrder) error {
 }
 
 func (s *Service) TransferPromotionCommission(user *model.User, req PromotionTransferRequest) (*model.CreditAccount, error) {
+	enabled, err := s.promotionEnabled()
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return nil, BadAuthRequest("推广中心暂未开放")
+	}
 	if req.AmountMicrocredits <= 0 {
 		return nil, BadAuthRequest("转入积分必须大于 0")
 	}
@@ -393,12 +432,16 @@ func normalizeWithdrawalChannel(channel string) string {
 }
 
 func (s *Service) CreatePromotionWithdrawal(user *model.User, req PromotionWithdrawalRequest) (*model.WithdrawalRequest, error) {
-	policy, err := s.promotionPolicy()
+	enabled, err := s.promotionEnabled()
 	if err != nil {
 		return nil, err
 	}
-	if !policy.Enabled {
+	if !enabled {
 		return nil, BadAuthRequest("推广中心暂未开放")
+	}
+	policy, err := s.promotionPolicy()
+	if err != nil {
+		return nil, err
 	}
 	if req.AmountMicrocredits <= 0 {
 		return nil, BadAuthRequest("提现金额必须大于 0")
