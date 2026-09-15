@@ -12,6 +12,8 @@ type AuthSettings = Awaited<ReturnType<typeof getAuthSettings>>;
 export default function RegisterPage() {
     const navigate = useNavigate();
     const [params] = useSearchParams();
+    // /register?invite=CODE 来自推广邀请链接，注册成功后由后端建立邀请关系。
+    const inviteCode = (params.get("invite") || "").trim().toUpperCase();
     const { message } = App.useApp();
     const [settings, setSettings] = useState<AuthSettings | null>(null);
     const [username, setUsername] = useState("");
@@ -75,7 +77,7 @@ export default function RegisterPage() {
         registering.current = true;
         setSubmitting(true);
         try {
-            await register({ username, email, emailCode, displayName, password });
+            await register({ username, email, emailCode, displayName, password, inviteCode });
             const { applyUserSession } = await import("@/lib/user-session");
             await applyUserSession(await getAuthSession());
             if (!settings?.firstUser) window.sessionStorage.setItem("infinite-canvas:model-setup-guide", "1");
