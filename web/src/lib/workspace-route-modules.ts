@@ -4,6 +4,7 @@ const workspaceRouteLoaders = {
     create: () => import("@/pages/create"),
     projects: () => import("@/pages/projects"),
     projectDetail: () => import("@/pages/projects/detail"),
+    promotion: () => import("@/pages/promotion"),
     wallet: () => import("@/pages/wallet"),
 };
 
@@ -13,6 +14,7 @@ export const loadCanvasProjectPage = () => import("@/pages/canvas/project");
 export const loadCreatePage = workspaceRouteLoaders.create;
 export const loadProjectDetailPage = workspaceRouteLoaders.projectDetail;
 export const loadProjectsPage = workspaceRouteLoaders.projects;
+export const loadPromotionPage = workspaceRouteLoaders.promotion;
 export const loadWalletPage = workspaceRouteLoaders.wallet;
 
 export function preloadWorkspaceRoute(pathnameOrSlug: string) {
