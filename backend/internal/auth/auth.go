@@ -38,6 +38,8 @@ type RegisterRequest struct {
 	DisplayName   string `json:"displayName"`
 	Password      string `json:"password"`
 	AcceptedTerms bool   `json:"acceptedTerms"`
+	// InviteCode 是可选的推广邀请码，注册成功后由上层建立邀请关系。
+	InviteCode string `json:"inviteCode"`
 }
 
 type LoginRequest struct {

@@ -15,6 +15,8 @@ type AuthSettings = Awaited<ReturnType<typeof getAuthSettings>>;
 export default function RegisterPage() {
     const navigate = useNavigate();
     const [params] = useSearchParams();
+    // /register?invite=CODE 来自推广邀请链接，注册成功后由后端建立邀请关系。
+    const inviteCode = (params.get("invite") || "").trim().toUpperCase();
     const { message } = App.useApp();
     const brandName = useAppearanceStore((state) => state.appearance.brandName) || "平台";
     const [settings, setSettings] = useState<AuthSettings | null>(null);
@@ -74,7 +76,7 @@ export default function RegisterPage() {
         setSubmitting(true);
         try {
             if (!settings?.firstUser && !verification.ticket) throw new Error("请先获取本次注册验证码");
-            await register({ username, ...(settings?.firstUser ? { email } : verification), displayName, password, acceptedTerms: agreementAccepted });
+            await register({ username, ...(settings?.firstUser ? { email } : verification), displayName, password, acceptedTerms: agreementAccepted, inviteCode });
             const { applyUserSession } = await import("@/lib/user-session");
             await applyUserSession(await getAuthSession());
             if (!settings?.firstUser) window.sessionStorage.setItem("infinite-canvas:model-setup-guide", "1");
