@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"infinite-canvas/backend/internal/service"
@@ -11,14 +12,27 @@ import (
 
 // RegisterPromotionRoutes 注册推广中心接口：用户侧查看邀请、转入与提现，管理侧配置策略与审核提现。
 func RegisterPromotionRoutes(r *gin.RouterGroup, svc *service.Service) {
-	// 注册页在未登录状态需要判断推广邀请是否可用，因此单独暴露一个不含任何用户信息的公开状态。
+	// 注册页在未登录状态需要判断推广邀请是否可用、以及邀请码是否真实存在。
+	// 只返回布尔值，不含邀请人身份；同时限流，避免被用来批量枚举邀请码。
 	r.GET("/public/promotion-status", func(c *gin.Context) {
 		enabled, err := svc.PublicPromotionEnabled()
 		if err != nil {
 			failService(c, err)
 			return
 		}
-		ok(c, gin.H{"enabled": enabled})
+		code := strings.TrimSpace(c.Query("code"))
+		codeValid := false
+		if code != "" {
+			if !enforceRateLimit(c, "promotion-code-check:"+c.ClientIP(), 60, time.Hour) {
+				return
+			}
+			codeValid, err = svc.PublicInviteCodeValid(code)
+			if err != nil {
+				failService(c, err)
+				return
+			}
+		}
+		ok(c, gin.H{"enabled": enabled, "inviteCodeValid": codeValid})
 	})
 
 	r.GET("/promotion/overview", func(c *gin.Context) {

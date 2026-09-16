@@ -36,6 +36,22 @@ func (s *Service) PublicPromotionEnabled() (bool, error) {
 	return s.promotionEnabled()
 }
 
+// PublicInviteCodeValid 供注册页在未登录状态校验邀请码是否真实存在。
+// 只返回是否存在，不返回邀请人身份，避免通过注册页探测用户信息。
+func (s *Service) PublicInviteCodeValid(code string) (bool, error) {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" {
+		return false, nil
+	}
+	if _, err := s.repo.InviteCodeByCode(code); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // promotionEnabled 是推广中心的唯一开关：入口可见性、邀请绑定、返佣结算与提现都以它为准。
 func (s *Service) promotionEnabled() (bool, error) {
 	features, err := s.FeatureAvailability()

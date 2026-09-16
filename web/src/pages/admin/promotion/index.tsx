@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Button, Input, InputNumber, Modal, Table, Tag } from "antd";
+import { App, Button, Input, InputNumber, Modal, Switch, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
 import { PaginationBar, TableSurface } from "@/components/layout/workspace-page";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { formatCredits } from "@/constant/credits";
+import { refreshFeatureAvailability } from "@/lib/user-session";
+import { updateAdminFeatureAvailability } from "@/services/api/auth";
 import { useUserStore } from "@/stores/use-user-store";
 import {
     getAdminPromotionPolicy,
@@ -42,6 +44,7 @@ function formatDateTime(value?: string) {
 export default function AdminPromotionPage() {
     const { message } = App.useApp();
     const promotionEnabled = useUserStore((state) => state.features.promotionEnabled);
+    const [togglingPromotion, setTogglingPromotion] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [ratioPercent, setRatioPercent] = useState<number | null>(3);
@@ -93,6 +96,20 @@ export default function AdminPromotionPage() {
     useEffect(() => {
         void loadWithdrawals(status, page);
     }, [loadWithdrawals, page, status]);
+
+    // 与「系统配置 → 功能开放」共用同一个特性开关；保存后刷新会话态，侧边栏与路由立即响应。
+    const togglePromotion = async (checked: boolean) => {
+        setTogglingPromotion(true);
+        try {
+            await updateAdminFeatureAvailability({ promotionEnabled: checked });
+            await refreshFeatureAvailability();
+            message.success(checked ? "推广中心已开启" : "推广中心已关闭");
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "开关保存失败");
+        } finally {
+            setTogglingPromotion(false);
+        }
+    };
 
     const savePolicy = async () => {
         const ratio = Number(ratioPercent ?? 0);
@@ -220,10 +237,8 @@ export default function AdminPromotionPage() {
                         <p className="mt-1 text-[var(--fs-caption)] text-foreground/62">比例按充值入账积分计算；冻结期满自动转为可用返佣。</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Tag color={promotionEnabled ? "green" : "default"}>{promotionEnabled ? "已启用" : "未启用"}</Tag>
-                        <span className="text-[var(--fs-caption)] text-foreground/62">
-                            开启/关闭请到「系统配置 → 功能开放」
-                        </span>
+                        <span className="text-[var(--fs-caption)] text-foreground/62">启用推广中心</span>
+                        <Switch checked={promotionEnabled} loading={togglingPromotion} onChange={(checked) => void togglePromotion(checked)} />
                     </div>
                 </div>
 
