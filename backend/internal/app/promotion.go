@@ -31,6 +31,11 @@ func defaultPromotionPolicy() PromotionPolicy {
 	return PromotionPolicy{RatioBPS: 300, FreezeDays: 3, MinWithdrawalMicrocredits: 10 * CreditScale}
 }
 
+// PublicPromotionEnabled 供未登录的注册页判断推广邀请是否可用，只暴露一个布尔值。
+func (s *Service) PublicPromotionEnabled() (bool, error) {
+	return s.promotionEnabled()
+}
+
 // promotionEnabled 是推广中心的唯一开关：入口可见性、邀请绑定、返佣结算与提现都以它为准。
 func (s *Service) promotionEnabled() (bool, error) {
 	features, err := s.FeatureAvailability()

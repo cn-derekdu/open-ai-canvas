@@ -1,9 +1,10 @@
 import { type FormEvent, useEffect, useRef, useState, type ReactNode } from "react";
 import { App, Button, Checkbox, Divider, Input, Modal, Segmented } from "antd";
-import { ArrowRight, FileText, Info, LockKeyhole, Mail, TriangleAlert, UserRound } from "lucide-react";
+import { ArrowRight, FileText, Gift, Info, LockKeyhole, Mail, ShieldCheck, TriangleAlert, UserRound } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
 
-import { getAuthSession, getAuthSettings, getFeatureAvailability, linuxDOLoginURL, register, sendRegistrationEmailCode } from "@/services/api/auth";
+import { getAuthSession, getAuthSettings, linuxDOLoginURL, register, sendRegistrationEmailCode } from "@/services/api/auth";
+import { getPublicPromotionStatus } from "@/services/api/promotion";
 import { LinuxDOIcon } from "./auth-scene";
 import { ApiError } from "@/services/api/request";
 import { VerificationFields } from "@/components/auth/verification-fields";
@@ -18,26 +19,25 @@ export default function RegisterPage() {
     // /register?invite=CODE 来自推广邀请链接，注册成功后由后端建立邀请关系。
     const { message } = App.useApp();
     const brandName = useAppearanceStore((state) => state.appearance.brandName) || "平台";
-    const inviteCode = (params.get("invite") || "").trim().toUpperCase();
-    // 邀请链接可能来自推广已关闭的时期：先查公开开关，避免用户误以为绑定成功。
-    const [promotionEnabled, setPromotionEnabled] = useState(true);
+    const inviteCodeFromLink = (params.get("invite") || "").trim().toUpperCase();
+    // 邀请码既可以来自邀请链接，也可以手动填写；是否生效取决于推广中心开关。
+    const [inviteInput, setInviteInput] = useState(inviteCodeFromLink);
+    const [promotionEnabled, setPromotionEnabled] = useState<boolean | null>(null);
 
     useEffect(() => {
-        if (!inviteCode) return;
+        if (!inviteCodeFromLink) return;
         let cancelled = false;
-        void getFeatureAvailability()
-            .then(({ features }) => {
+        void getPublicPromotionStatus()
+            .then(({ enabled }) => {
                 if (cancelled) return;
-                if (!features.promotionEnabled) {
-                    setPromotionEnabled(false);
-                    message.warning("推广邀请暂时未启用");
-                }
+                setPromotionEnabled(enabled);
+                if (!enabled) message.warning("推广邀请暂时未启用，请直接注册。");
             })
             .catch(() => undefined);
         return () => {
             cancelled = true;
         };
-    }, [inviteCode, message]);
+    }, [inviteCodeFromLink, message]);
     const [settings, setSettings] = useState<AuthSettings | null>(null);
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
@@ -94,8 +94,26 @@ export default function RegisterPage() {
         registering.current = true;
         setSubmitting(true);
         try {
+            // 邀请码无效或推广未启用时仍然允许注册，只是不建立邀请关系。
+            let inviteCode = inviteInput.trim().toUpperCase();
+            if (inviteCode && promotionEnabled !== true) {
+                let enabled: boolean | null = promotionEnabled;
+                if (enabled === null) {
+                    try {
+                        const status = await getPublicPromotionStatus();
+                        enabled = status.enabled;
+                        setPromotionEnabled(enabled);
+                    } catch {
+                        enabled = false;
+                    }
+                }
+                if (enabled !== true) {
+                    message.warning("推广邀请暂时未启用，请直接注册。");
+                    inviteCode = "";
+                }
+            }
             if (!settings?.firstUser && !verification.ticket) throw new Error("请先获取本次注册验证码");
-            await register({ username, ...(settings?.firstUser ? { email } : verification), displayName, password, acceptedTerms: agreementAccepted, inviteCode: promotionEnabled ? inviteCode : undefined });
+            await register({ username, ...(settings?.firstUser ? { email } : verification), displayName, password, acceptedTerms: agreementAccepted, inviteCode: inviteCode || undefined });
             const { applyUserSession } = await import("@/lib/user-session");
             await applyUserSession(await getAuthSession());
             if (!settings?.firstUser) window.sessionStorage.setItem("infinite-canvas:model-setup-guide", "1");
@@ -212,6 +230,17 @@ export default function RegisterPage() {
                     </button>
                 </div>
             ) : null}
+
+            <AuthField label="邀请码（选填）">
+                <Input
+                    size="large"
+                    prefix={<Gift className="size-4 text-white/35" />}
+                    value={inviteInput}
+                    onChange={(event) => setInviteInput(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+                    placeholder="填写好友的邀请码，不填也可正常注册"
+                    disabled={disabled}
+                />
+            </AuthField>
 
             <Button type="primary" htmlType="submit" size="large" block loading={submitting} disabled={disabled || registerCountdown > 0 || !agreementAccepted} icon={<ArrowRight className="size-4" />} iconPlacement="end">
                 {registerCountdown > 0 ? `${registerCountdown} 秒后可重试` : "创建账号"}

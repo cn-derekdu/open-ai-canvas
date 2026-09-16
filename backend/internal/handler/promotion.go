@@ -11,6 +11,16 @@ import (
 
 // RegisterPromotionRoutes 注册推广中心接口：用户侧查看邀请、转入与提现，管理侧配置策略与审核提现。
 func RegisterPromotionRoutes(r *gin.RouterGroup, svc *service.Service) {
+	// 注册页在未登录状态需要判断推广邀请是否可用，因此单独暴露一个不含任何用户信息的公开状态。
+	r.GET("/public/promotion-status", func(c *gin.Context) {
+		enabled, err := svc.PublicPromotionEnabled()
+		if err != nil {
+			failService(c, err)
+			return
+		}
+		ok(c, gin.H{"enabled": enabled})
+	})
+
 	r.GET("/promotion/overview", func(c *gin.Context) {
 		user, err := currentUser(c, svc)
 		if err != nil {
