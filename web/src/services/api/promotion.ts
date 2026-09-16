@@ -94,9 +94,11 @@ export function getPromotionOverview() {
     return http.get<{ overview: PromotionOverview }>("/promotion/overview");
 }
 
-// 注册页未登录时使用：只返回推广是否开放，不包含任何用户数据。
-export function getPublicPromotionStatus() {
-    return http.get<{ enabled: boolean }>("/public/promotion-status");
+// 注册页未登录时使用：返回推广是否开放，并按需校验邀请码是否真实存在。
+export function getPublicPromotionStatus(code?: string) {
+    return http.get<{ enabled: boolean; inviteCodeValid: boolean }>("/public/promotion-status", {
+        params: code ? { code } : undefined,
+    });
 }
 
 export function listPromotionInvitations(params: { page?: number; pageSize?: number } = {}) {
