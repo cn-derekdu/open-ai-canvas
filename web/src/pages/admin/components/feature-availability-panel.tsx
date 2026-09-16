@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/base/switch";
 import { AlertTriangle, Clapperboard, Coins, ListChecks, MonitorCog, PlugZap, RadioTower, RefreshCw, Share2, ShieldCheck, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { refreshFeatureAvailability } from "@/lib/user-session";
 import { getAdminFeatureAvailability, updateAdminFeatureAvailability } from "@/services/api/auth";
 import { useUserStore, type FeatureAvailability } from "@/stores/use-user-store";
 import { AdminStatusBadge } from "./admin-ui";
@@ -143,6 +144,8 @@ export default function FeatureAvailabilityPanel() {
             setSavedFeatures(value);
             setDraftFeatures(value);
             setGlobalFeatures(value);
+            // 特性开关同时控制侧边栏入口与路由准入，保存后立即刷新会话态，避免还要手动刷新页面。
+            await refreshFeatureAvailability();
             message.success(`${featureByKey.get(key)?.title || "功能"}已${enabled ? "开启" : "关闭"}`);
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "保存功能开放配置失败";
