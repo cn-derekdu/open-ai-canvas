@@ -24,9 +24,11 @@ type APICallLogFilter struct {
 	RecordType string
 	Keyword    string
 	Status     string
-	IDs        []string
-	Page       int
-	Limit      int
+	// TaskID 按任务精确过滤，用于从任务失败处反查上游调用记录。
+	TaskID string
+	IDs    []string
+	Page   int
+	Limit  int
 }
 
 func (r *Repository) RecordUserActivity(userID string, event string, count int, now time.Time) error {
@@ -158,6 +160,9 @@ func (r *Repository) filteredAPICallLogQuery(filter APICallLogFilter) *gorm.DB {
 	}
 	if filter.Status != "" {
 		query = query.Where("api_call_logs.status = ?", filter.Status)
+	}
+	if value := strings.TrimSpace(filter.TaskID); value != "" {
+		query = query.Where("api_call_logs.task_id = ?", value)
 	}
 	return query
 }

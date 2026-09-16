@@ -33,6 +33,7 @@ import { useCanvasNodeActions } from "./canvas-node-action-context";
 import { CanvasSubtitleOverlay } from "./canvas-subtitle-overlay";
 import { CanvasVideoPreviewImage } from "./canvas-video-preview-image";
 import { CanvasFileUploadContent } from "./canvas-file-upload-content";
+import { CanvasNodeUpstreamDetail } from "./canvas-node-upstream-detail";
 import { MarkdownNodeContent } from "./nodes/markdown-node";
 import { ChartNodeContent } from "./nodes/chart-node";
 import { CompareNodeContent } from "./nodes/compare-node";
@@ -363,6 +364,7 @@ function ErrorContent({ node, theme, onRetry, onReloadResource }: Pick<CanvasNod
                     {node.metadata?.taskCanRecoverMedia ? "重试保存（不重新生成）" : node.metadata?.isBatchRoot ? "重新生成失败项" : "重新生成"}
                 </button>
             )}
+            <CanvasNodeUpstreamDetail taskId={node.metadata?.taskId} theme={{ nodeText: theme.node.text, nodeMuted: theme.node.muted, hoverBackground: theme.toolbar.itemHover }} />
         </div>
     );
 }
