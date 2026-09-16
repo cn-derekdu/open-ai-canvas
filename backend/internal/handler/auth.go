@@ -718,7 +718,7 @@ func RegisterAdminRoutes(r *gin.RouterGroup, svc *service.Service) {
 			fail(c, http.StatusBadRequest, err)
 			return
 		}
-		logs, err := svc.AdminAPICallLogs(user, service.APICallLogQuery{AnalyticsQuery: analyticsQuery(c), RecordType: c.Query("recordType"), Keyword: c.Query("keyword"), Status: c.Query("status"), Page: page, Limit: limit})
+		logs, err := svc.AdminAPICallLogs(user, service.APICallLogQuery{AnalyticsQuery: analyticsQuery(c), RecordType: c.Query("recordType"), Keyword: c.Query("keyword"), Status: c.Query("status"), TaskID: c.Query("taskId"), Page: page, Limit: limit})
 		if err != nil {
 			failService(c, err)
 			return

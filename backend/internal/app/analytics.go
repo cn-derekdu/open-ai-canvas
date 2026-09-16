@@ -106,9 +106,11 @@ type APICallLogQuery struct {
 	RecordType string
 	Keyword    string
 	Status     string
-	IDs        []string
-	Page       int
-	Limit      int
+	// TaskID 用于按任务反查调用记录，便于在任务失败处直接查看上游原因。
+	TaskID string
+	IDs    []string
+	Page   int
+	Limit  int
 }
 
 type APICallLogPage struct {
@@ -194,7 +196,7 @@ func (s *Service) AdminAPICallLogs(actor *model.User, query APICallLogQuery) (*A
 		return nil, BadAuthRequest("请求明细类型无效")
 	}
 	filter := normalizeAnalyticsFilter(query.AnalyticsQuery)
-	logs, total, err := s.repo.QueryAPICallLogs(repository.APICallLogFilter{AnalyticsFilter: filter, RecordType: query.RecordType, Keyword: query.Keyword, Status: query.Status, Page: query.Page, Limit: query.Limit})
+	logs, total, err := s.repo.QueryAPICallLogs(repository.APICallLogFilter{AnalyticsFilter: filter, RecordType: query.RecordType, Keyword: query.Keyword, Status: query.Status, TaskID: query.TaskID, Page: query.Page, Limit: query.Limit})
 	if err != nil {
 		return nil, err
 	}
