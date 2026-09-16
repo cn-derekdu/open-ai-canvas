@@ -79,7 +79,16 @@ ssh ubuntu-93 'cd /opt/open-ai-canvas && git fetch origin main && git reset --ha
 ssh ubuntu-93 'cd /opt/open-ai-canvas && docker compose --env-file .env -f docker-compose.deploy.yml -f docker-compose.build.yml up -d --build --remove-orphans'
 ```
 
-- 只改前端时可把构建目标缩到 `web`（`... up -d --build web`）加快发布
+- **按改动范围只重建必要服务**，不要无脑两个都重建：
+  - 只改前端（组件、样式、页面）→ `... up -d --build web`，约 1–2 分钟
+  - 只改后端（接口、任务、协议、迁移）→ `... up -d --build backend`，约 3–5 分钟
+  - 前后端都有改动 → 两个都重建
+  - 判断依据：`git diff --name-only <旧commit>..HEAD` 看改动落在 `web/` 还是 `backend/`
+- 源码构建的物理前提：镜像里是编译产物（后端 Go 二进制、前端 vite `dist`），
+  所以「改了源码」不等于「运行的不是新代码」，必须重新构建对应服务才会生效
+- 构建依赖走 `GOPROXY=https://goproxy.cn,direct`（已写入服务器 `.env` 的 `GOPROXY`），
+  比默认 `proxy.golang.org` 明显更快
+- 服务器 Build Cache（约 11GB）是构建加速的关键，禁止执行 `docker builder prune`
 - `reset --hard` 不影响 `.env` 与数据卷（均不在版本库内）
 
 ## 7. 阶段七：线上验证
