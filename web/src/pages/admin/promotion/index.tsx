@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Button, Input, InputNumber, Modal, Switch, Table, Tag } from "antd";
+import { App, Button, Input, InputNumber, Modal, Switch, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
+import { StatusBadge } from "@/components/ui/base/badges/status-badge";
 import { PaginationBar, TableSurface } from "@/components/layout/workspace-page";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { formatCredits } from "@/constant/credits";
@@ -26,10 +27,13 @@ const statusOptions = [
     { value: "", label: "全部" },
 ];
 
-const statusTag: Record<PromotionWithdrawal["status"], { text: string; color: string }> = {
-    pending: { text: "审核中", color: "orange" },
-    approved: { text: "已通过", color: "green" },
-    rejected: { text: "已驳回", color: "red" },
+// 统一用项目 StatusBadge，避免 antd Tag 在主题 token 下出现不可读配色。
+type BadgeTone = "neutral" | "success" | "warning" | "error" | "loading";
+
+const statusTag: Record<PromotionWithdrawal["status"], { text: string; tone: BadgeTone }> = {
+    pending: { text: "审核中", tone: "loading" },
+    approved: { text: "已通过", tone: "success" },
+    rejected: { text: "已驳回", tone: "error" },
 };
 
 const channelLabel: Record<string, string> = { alipay: "支付宝", wechat: "微信", bank: "银行卡" };
@@ -173,7 +177,7 @@ export default function AdminPromotionPage() {
             title: "提现方式",
             dataIndex: "channel",
             width: 110,
-            render: (value: string) => <Tag>{channelLabel[value] || value}</Tag>,
+            render: (value: string) => <StatusBadge variant="filled" tone="neutral" label={channelLabel[value] || value} />,
         },
         {
             title: "收款账号",
@@ -195,7 +199,9 @@ export default function AdminPromotionPage() {
             title: "状态",
             dataIndex: "status",
             width: 110,
-            render: (value: PromotionWithdrawal["status"]) => <Tag color={statusTag[value]?.color || "default"}>{statusTag[value]?.text || value}</Tag>,
+            render: (value: PromotionWithdrawal["status"]) => (
+                <StatusBadge variant="filled" tone={statusTag[value]?.tone ?? "neutral"} label={statusTag[value]?.text || value} />
+            ),
         },
         {
             title: "提交时间",
