@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { App, Button, Input, InputNumber, Modal, Table, Tag } from "antd";
+import { App, Button, Input, InputNumber, Modal, Table } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { Check, Coins, Copy, Gift, Link2, ShieldCheck, Sparkles, TrendingUp, Users, Wallet } from "lucide-react";
 
+import { StatusBadge } from "@/components/ui/base/badges/status-badge";
 import { PaginationBar, TableSurface } from "@/components/layout/workspace-page";
 import { SegmentedControl } from "@/components/ui/base/segmented-control";
 import { Tooltip } from "@/components/ui/base/tooltip";
@@ -34,18 +35,21 @@ const tabOptions = [
     { value: "withdrawal", label: "提现记录" },
 ];
 
-const commissionStatusLabel: Record<PromotionCommissionRecord["status"], { text: string; color: string }> = {
-    frozen: { text: "冻结中", color: "gold" },
-    available: { text: "可提现", color: "green" },
-    transferred: { text: "已转积分", color: "blue" },
-    withdrawing: { text: "审核中", color: "orange" },
-    withdrawn: { text: "已提现", color: "default" },
+// 统一用项目 StatusBadge，避免 antd Tag 在主题 token 下出现不可读配色。
+type BadgeTone = "neutral" | "success" | "warning" | "error" | "loading";
+
+const commissionStatusLabel: Record<PromotionCommissionRecord["status"], { text: string; tone: BadgeTone }> = {
+    frozen: { text: "冻结中", tone: "warning" },
+    available: { text: "可提现", tone: "success" },
+    transferred: { text: "已转积分", tone: "neutral" },
+    withdrawing: { text: "审核中", tone: "loading" },
+    withdrawn: { text: "已提现", tone: "neutral" },
 };
 
-const withdrawalStatusLabel: Record<PromotionWithdrawal["status"], { text: string; color: string }> = {
-    pending: { text: "审核中", color: "orange" },
-    approved: { text: "已通过", color: "green" },
-    rejected: { text: "已驳回", color: "red" },
+const withdrawalStatusLabel: Record<PromotionWithdrawal["status"], { text: string; tone: BadgeTone }> = {
+    pending: { text: "审核中", tone: "loading" },
+    approved: { text: "已通过", tone: "success" },
+    rejected: { text: "已驳回", tone: "error" },
 };
 
 const channelLabel: Record<string, string> = { alipay: "支付宝", wechat: "微信", bank: "银行卡" };
@@ -256,7 +260,7 @@ export default function PromotionPage() {
             title: "邀请来源",
             dataIndex: "source",
             width: 140,
-            render: (value: string) => <Tag color="blue">{invitationSourceLabel[value] || value || "邀请链接"}</Tag>,
+            render: (value: string) => <StatusBadge variant="filled" tone="neutral" label={invitationSourceLabel[value] || value || "邀请链接"} />,
         },
         {
             title: "累计贡献",
@@ -302,7 +306,11 @@ export default function PromotionPage() {
             width: 120,
             render: (value: PromotionCommissionRecord["status"], record) => (
                 <div className="flex flex-col gap-1">
-                    <Tag color={commissionStatusLabel[value]?.color || "default"}>{commissionStatusLabel[value]?.text || value}</Tag>
+                    <StatusBadge
+                        variant="filled"
+                        tone={commissionStatusLabel[value]?.tone ?? "neutral"}
+                        label={commissionStatusLabel[value]?.text || value}
+                    />
                     {value === "frozen" ? <span className="text-[var(--fs-caption)] text-foreground/52">{formatDateTime(record.availableAt)} 解冻</span> : null}
                 </div>
             ),
@@ -320,7 +328,7 @@ export default function PromotionPage() {
             title: "提现方式",
             dataIndex: "channel",
             width: 130,
-            render: (value: string) => <Tag>{channelLabel[value] || value}</Tag>,
+            render: (value: string) => <StatusBadge variant="filled" tone="neutral" label={channelLabel[value] || value} />,
         },
         {
             title: "收款账号",
@@ -343,7 +351,11 @@ export default function PromotionPage() {
             dataIndex: "status",
             width: 120,
             render: (value: PromotionWithdrawal["status"]) => (
-                <Tag color={withdrawalStatusLabel[value]?.color || "default"}>{withdrawalStatusLabel[value]?.text || value}</Tag>
+                <StatusBadge
+                    variant="filled"
+                    tone={withdrawalStatusLabel[value]?.tone ?? "neutral"}
+                    label={withdrawalStatusLabel[value]?.text || value}
+                />
             ),
         },
         {
@@ -378,9 +390,11 @@ export default function PromotionPage() {
                     <h1 className="text-[var(--fs-heading-lg)] font-semibold leading-7">推广中心</h1>
                     <p className="mt-1 text-[var(--fs-caption)] text-foreground/62">邀请好友加入，好友充值后返佣进入冻结账户。</p>
                 </div>
-                <Tag className="m-0" color="default">
-                    当前比例 {overview ? formatPercent(overview.ratioBasisPoints) : "—"} · 平台
-                </Tag>
+                <StatusBadge
+                    variant="filled"
+                    tone="neutral"
+                    label={`当前比例 ${overview ? formatPercent(overview.ratioBasisPoints) : "—"} · 平台`}
+                />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
