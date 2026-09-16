@@ -583,7 +583,7 @@ export function updateAdminDrawingEngineSetting(input: Pick<CanvasDrawingEngineS
     return http.patch<{ setting: CanvasDrawingEngineSetting }>("/admin/settings/drawing-engine", input);
 }
 
-export type AdminApiLogParams = AdminListParams & { recordType?: "request" | "download" | "all" };
+export type AdminApiLogParams = AdminListParams & { recordType?: "request" | "download" | "all"; taskId?: string };
 
 export function listAdminApiLogs(params: AdminApiLogParams = {}) {
     return http.get<{ logs: ApiCallLog[]; total: number; page: number; pageSize: number }>("/admin/api-logs", { params });
