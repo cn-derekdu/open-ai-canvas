@@ -42,7 +42,7 @@ export function ModelPicker({
     onMissingConfig,
     showSelectedPrice = true,
     showOptionPrices = showSelectedPrice,
-    variant = "default",
+    variant = "creation",
     requirements,
     showConfiguredModelName = false,
 }: ModelPickerProps) {
@@ -173,10 +173,8 @@ export function ModelPicker({
             ref={menuRef}
             data-canvas-no-zoom
             className={cn(
-                "canvas-model-picker-menu max-w-[calc(100vw-24px)]",
-                creationVariant
-                    ? cn("creation-model-picker-menu", activeGroupKey === null ? "is-brand-list" : "is-model-list")
-                    : "w-[var(--panel-width-compact)]",
+                "canvas-model-picker-menu creation-model-picker-menu max-w-[calc(100vw-24px)]",
+                activeGroupKey === null ? "is-brand-list" : "is-model-list",
             )}
             style={
                 {
@@ -252,13 +250,13 @@ export function ModelPicker({
                                             model={displayModel}
                                             capability={capability}
                                             theme={theme}
-                                            creationVariant={creationVariant}
+                                            creationVariant
                                             showConfiguredModelName={showConfiguredModelName}
                                             showPrice={showOptionPrices && creditsEnabled}
                                             disabledReason={disabledReason}
                                             showDescription={selected || previewedModel === displayModel}
                                         />
-                                        {selected ? <Check className="canvas-model-picker-option-check" style={{ color: theme.node.activeStroke }} /> : null}
+                                        {selected ? <Check className="canvas-model-picker-option-check ml-1 shrink-0" style={{ color: theme.node.activeStroke }} /> : null}
                                     </button>
                                 );
                             })}
@@ -283,8 +281,8 @@ export function ModelPicker({
                 arrow={false}
                 content={content}
                 classNames={{
-                    root: cn("canvas-model-picker-popover", creationVariant && "creation-model-picker-popover", popoverClassName),
-                    container: cn("canvas-composer-popover-surface", creationVariant && "creation-model-picker-surface"),
+                    root: cn("canvas-model-picker-popover", "creation-model-picker-popover", popoverClassName),
+                    container: cn("canvas-composer-popover-surface", "creation-model-picker-surface"),
                     content: "canvas-composer-popover-content",
                 }}
             >
@@ -353,13 +351,17 @@ function ModelLabel({
             <span className="grid size-6 shrink-0 place-items-center rounded-md" style={{ background: theme.toolbar.itemHover }}>
                 <ModelIcon config={config} model={model} />
             </span>
-            <span className="min-w-0 flex-1 overflow-hidden">
+            <span className="min-w-44 flex-1 overflow-hidden">
                 <span className="block min-w-0 truncate text-[var(--fs-label)] font-medium leading-none">{pickerModelDisplayName(config, model, showConfiguredModelName)}</span>
                 <span className={cn("canvas-model-picker-description mt-1 block truncate text-[var(--fs-tiny)]", showDescription && "is-visible")} style={{ color: theme.node.muted }} title={capabilitySummary}>
                     {capabilitySummary}
                 </span>
             </span>
-            {showPrice ? <ModelPrice price={modelMenuPrice(config, model, capability, true)} /> : null}
+            {showPrice ? (
+                <span className="ml-auto shrink-0 pl-2">
+                    <ModelPrice price={modelMenuPrice(config, model, capability, true)} />
+                </span>
+            ) : null}
             {!creationVariant && meta.time ? (
                 <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[var(--fs-tiny)] tabular-nums" style={{ background: theme.toolbar.itemHover, color: theme.node.muted }}>
                     {meta.time}

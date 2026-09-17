@@ -35,6 +35,18 @@ func TestMigrateSchemaRecordsAndValidatesVersion(t *testing.T) {
 	if !db.Migrator().HasTable(&model.AgentProfile{}) || !db.Migrator().HasIndex(&model.AgentProfile{}, "idx_agent_profiles_scope") {
 		t.Fatal("schema migration v15 did not create scoped Agent profiles")
 	}
+	if !db.Migrator().HasTable(&model.AgentLesson{}) || !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_status") {
+		t.Fatal("schema migration v17 did not create Agent lessons")
+	}
+	if !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_author_status") {
+		t.Fatal("schema migration v18 did not create owner status index")
+	}
+	if !db.Migrator().HasTable(&model.AgentMemorySetting{}) {
+		t.Fatal("schema migration v19 did not create agent memory settings")
+	}
+	if !db.Migrator().HasColumn(&model.PaymentProviderConfig{}, "plugin_version") || !db.Migrator().HasColumn(&model.PaymentOrder{}, "plugin_version") {
+		t.Fatal("schema migration v20 did not add payment plugin version columns")
+	}
 	if err := MigrateSchema(db); err != nil {
 		t.Fatalf("migration should be idempotent: %v", err)
 	}
@@ -62,6 +74,116 @@ func TestMigrateSchemaV15UpgradesExistingDatabase(t *testing.T) {
 	}
 	status, err := ReadSchemaStatus(db)
 	// 该用例验证从 v14 继续升级：补跑 v15 后应一路升到程序支持的最新版本。
+	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
+		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
+	}
+}
+
+func TestMigrateSchemaV16UpgradesExistingDatabase(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-agent-lessons-v16?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropTable(&model.AgentLesson{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("version = ?", 17).Delete(&schemaMigration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatalf("upgrade from v16: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.AgentLesson{}) || !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_status") {
+		t.Fatal("v17 upgrade did not install Agent lesson table and status index")
+	}
+	status, err := ReadSchemaStatus(db)
+	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
+		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
+	}
+}
+
+func TestMigrateSchemaV17UpgradesExistingDatabase(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-agent-lessons-v17?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropIndex(&model.AgentLesson{}, "idx_agent_lessons_author_status"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("version = ?", 18).Delete(&schemaMigration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatalf("upgrade from v17: %v", err)
+	}
+	if !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_author_status") {
+		t.Fatal("v18 upgrade did not install owner status index")
+	}
+	status, err := ReadSchemaStatus(db)
+	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
+		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
+	}
+}
+
+func TestMigrateSchemaV18UpgradesExistingDatabase(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-agent-memory-settings-v18?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropTable(&model.AgentMemorySetting{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("version = ?", 19).Delete(&schemaMigration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatalf("upgrade from v18: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.AgentMemorySetting{}) {
+		t.Fatal("v19 upgrade did not install agent memory settings")
+	}
+	status, err := ReadSchemaStatus(db)
+	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
+		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
+	}
+}
+
+func TestMigrateSchemaV19AddsPaymentPluginVersion(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-payment-plugin-version-v19?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropColumn(&model.PaymentProviderConfig{}, "PluginVersion"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Migrator().DropColumn(&model.PaymentOrder{}, "PluginVersion"); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Where("version = ?", 20).Delete(&schemaMigration{}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatalf("upgrade from v19: %v", err)
+	}
+	if !db.Migrator().HasColumn(&model.PaymentProviderConfig{}, "plugin_version") {
+		t.Fatal("v20 upgrade did not add payment_provider_configs.plugin_version")
+	}
+	if !db.Migrator().HasColumn(&model.PaymentOrder{}, "plugin_version") {
+		t.Fatal("v20 upgrade did not add payment_orders.plugin_version")
+	}
+	status, err := ReadSchemaStatus(db)
 	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
 	}

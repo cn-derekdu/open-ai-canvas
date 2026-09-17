@@ -467,6 +467,9 @@
 .app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-nav-icon { width: 30px; height: 30px; flex-basis: 30px; }
 .app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-nav-link .app-workspace-nav-icon svg,
 .app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-nav-link .app-workspace-nav-main > svg { width: 18px !important; height: 18px !important; flex: 0 0 18px; }
+.app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-sidebar-account { width: 100%; align-items: center; }
+.app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-sidebar-checkin { width: 48px; }
+.app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-sidebar-storage { width: 36px; }
 .app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-sidebar-profile-row { width: 100%; justify-content: center; }
 .app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-sidebar-profile { width: 48px; min-width: 48px; flex: 0 0 48px; margin-inline: auto; }
 .app-user-workspace .app-workspace-sidebar-nav.is-collapsed .app-workspace-sidebar-notification-spacer { display: none; }
@@ -538,13 +541,32 @@
 .creation-floating-prompt button:hover { background: var(--user-surface-hover); transform: scale(1.05); }
 .creation-floating-prompt button:focus-visible { outline: 2px solid var(--user-accent); outline-offset: 2px; }
 .creation-floating-prompt button svg { width: 19px; height: 19px; }
-.app-user-workspace .creation-chat-composer.is-thread { display: grid; grid-template-columns: 74px minmax(0, 1fr); column-gap: 10px; }
-.app-user-workspace .creation-chat-composer.is-thread .creation-composer-mode-row { grid-column: 1; grid-row: 1 / 3; min-width: 0; padding: 8px 0 8px 8px; }
-.app-user-workspace .creation-chat-composer.is-thread .creation-composer-mode-row .creation-mode-tabs { display: grid; width: 100%; height: 100%; grid-template-rows: repeat(3, minmax(52px, 1fr)); align-self: stretch; margin: 0; padding: 4px; border-radius: 16px; transform: none; }
-.app-user-workspace .creation-chat-composer.is-thread .creation-composer-mode-row .creation-mode-button { height: auto; min-height: 52px; flex-direction: column; gap: 3px; padding: 5px 2px; font-size: 11px; }
-.app-user-workspace .creation-chat-composer.is-thread .creation-composer-mode-row .creation-mode-indicator { inset: 0; width: auto; height: auto; }
-.app-user-workspace .creation-chat-composer.is-thread .creation-chat-writing-surface,
-.app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock { grid-column: 2; min-width: 0; }
+.app-user-workspace .creation-chat-composer.is-thread { display: flex; flex-direction: column; }
+.app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-tabs {
+    display: grid;
+    width: max-content;
+    height: 32px;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(3, auto);
+    margin: 0;
+    padding: 2px;
+    border-radius: 999px;
+    background: var(--user-surface-muted);
+    transform: none;
+}
+.app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-button {
+    height: 28px;
+    min-height: 28px;
+    flex-direction: row;
+    gap: 4px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 620;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+.app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-button svg { width: 13px; height: 13px; }
+.app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-indicator { inset: 0; width: auto; height: auto; border-radius: 999px; }
 .app-user-workspace .creation-composer-stage { display: flex; min-width: 0; align-items: stretch; gap: 14px; }
 .app-user-workspace .creation-composer-stage.is-thread-mode { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 14px; }
 .app-user-workspace .creation-composer-stage.is-thread-mode > .creation-mode-tabs { display: grid; width: 76px; grid-template-columns: 1fr; grid-template-rows: repeat(3, minmax(54px, 1fr)); align-self: stretch; margin: 0; padding: 4px; border-radius: 18px; }
@@ -564,7 +586,7 @@
 .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-brand.is-active { border-color: var(--workspace-border); background: var(--workspace-surface-hover); }
 .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-model-pane { border: 0; margin: 0; padding: 0; }
 
-@media (max-width: 720px) { .creation-floating-prompt { top: 8px; width: calc(100% - 24px); min-height: 60px; gap: 10px; padding: 8px 9px 8px 16px; border-radius: 19px; } .creation-floating-prompt input { font-size: 14px; } .creation-floating-prompt button { width: 40px; height: 40px; flex-basis: 40px; } .creation-model-picker-surface .creation-model-picker-menu:is(.is-brand-list, .is-model-list) { width: calc(100vw - 24px) !important; } .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-two-pane { grid-template-columns: minmax(0, 1fr); min-height: 0; } .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-brand-rail { display: none; } .app-user-workspace .creation-chat-composer.is-thread { grid-template-columns: 58px minmax(0, 1fr); column-gap: 4px; } .app-user-workspace .creation-chat-composer.is-thread .creation-composer-mode-row { padding: 6px 0 6px 6px; } }
+@media (max-width: 720px) { .creation-floating-prompt { top: 8px; width: calc(100% - 24px); min-height: 60px; gap: 10px; padding: 8px 9px 8px 16px; border-radius: 19px; } .creation-floating-prompt input { font-size: 14px; } .creation-floating-prompt button { width: 40px; height: 40px; flex-basis: 40px; } .creation-model-picker-surface .creation-model-picker-menu:is(.is-brand-list, .is-model-list) { width: calc(100vw - 24px) !important; } .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-two-pane { grid-template-columns: minmax(0, 1fr); min-height: 0; } .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-brand-rail { display: none; } .app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-tabs { height: 30px; } .app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-button { height: 26px; min-height: 26px; padding: 0 6px; font-size: 10px; } }
 
 /* Shared controls: one size system and one state vocabulary. */
 .app-product-workspace :where(.ant-btn, .ant-input-affix-wrapper, .ant-select-selector, .ant-picker, .ant-input-number),
@@ -658,6 +680,157 @@
     .app-product-workspace .task-grid-view { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
     .app-product-workspace .plugins-grid { grid-template-columns: minmax(0, 1fr); }
     .app-product-workspace .story-launcher-panel { padding: 16px; border-radius: 16px; }
+}
+
+/* Changelog Modal Styles */
+.app-changelog-modal .ant-modal-container {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--user-border);
+    border-radius: 20px;
+    background: var(--user-page-bg);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+    max-height: min(84vh, 780px);
+}
+
+.app-changelog-modal .ant-modal-header {
+    margin-bottom: 0;
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--user-border);
+    background: var(--user-surface);
+}
+
+.app-changelog-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.app-changelog-heading-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    place-items: center;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--user-accent) 14%, var(--user-surface));
+    color: var(--user-accent);
+}
+
+.app-changelog-heading-copy {
+    display: grid;
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 2px;
+}
+
+.app-changelog-heading-title {
+    color: var(--user-ink);
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.3;
+}
+
+.app-changelog-heading-description {
+    color: var(--user-ink-muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.app-changelog-current-version {
+    margin-right: 28px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--user-accent) 25%, transparent);
+    background: color-mix(in srgb, var(--user-accent) 10%, var(--user-surface));
+    padding: 3px 10px;
+    color: var(--user-accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.app-changelog-scroll {
+    max-height: min(66vh, 600px);
+    overflow-y: auto;
+    padding: 20px 28px 32px;
+    color: var(--user-ink);
+}
+
+.app-changelog-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 24px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--user-border);
+    color: var(--user-ink);
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.app-changelog-section-heading:first-child {
+    margin-top: 0;
+}
+
+.app-changelog-section-marker {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--user-ink-muted);
+}
+
+.app-changelog-section-heading.is-latest .app-changelog-section-marker {
+    background: var(--user-accent);
+}
+
+.app-changelog-latest-badge {
+    border-radius: 999px;
+    background: var(--user-accent);
+    padding: 1px 7px;
+    color: var(--user-accent-foreground, #fff);
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.app-changelog-list {
+    margin: 8px 0 16px 20px;
+    padding: 0;
+    list-style-type: disc;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.app-changelog-list li {
+    color: color-mix(in srgb, var(--user-ink) 88%, transparent);
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.app-changelog-paragraph {
+    margin: 6px 0;
+    color: color-mix(in srgb, var(--user-ink) 78%, transparent);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.app-changelog-code {
+    border-radius: 5px;
+    border: 1px solid var(--user-border);
+    background: var(--user-surface-muted);
+    padding: 1px 5px;
+    color: var(--user-accent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11.5px;
+}
+
+@media (max-width: 620px) {
+    .app-changelog-heading-description { display: none; }
+    .app-changelog-current-version { display: none; }
+    .app-changelog-scroll { padding: 14px 16px 24px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

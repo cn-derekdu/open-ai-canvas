@@ -3,7 +3,7 @@
     overscroll-behavior: contain;
 }
 
-/* Agent 浮窗高于普通画布层，模型菜单必须叠在对话窗之上。 */
+/* Agent 浮窗高于普通画布层，模型菜单必须叠在对话窗之上；菜单本身与全站二级选择器同一套。 */
 .agent-model-picker-popover {
     z-index: calc(var(--z-modal-overlay) + 1000) !important;
 }

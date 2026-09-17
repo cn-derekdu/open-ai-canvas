@@ -3,7 +3,7 @@ import { createBrowserRouter, Navigate, Outlet, useLocation } from "react-router
 
 import { RequireAuth } from "@/components/auth/require-auth";
 import { FullScreenLoader, WorkspaceRouteLoader } from "@/components/ui/aceternity/full-screen-loader";
-import { loadAssetsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, loadProjectDetailPage, loadProjectsPage, loadPromotionPage, loadWalletPage } from "@/lib/workspace-route-modules";
+import { loadAssetsPage, loadCanvasPage, loadCanvasProjectPage, loadCreatePage, loadProjectDetailPage, loadProjectsPage, loadPromotionPage } from "@/lib/workspace-route-modules";
 import { CanvasRefreshShell } from "@/pages/canvas/canvas-refresh-shell";
 import { AuthScene } from "@/pages/auth/auth-scene";
 import RouteErrorPage from "@/pages/route-error";
@@ -16,6 +16,7 @@ const CreditOperationsPage = lazy(() => import("@/pages/admin/admin-route-pages"
 const AccessSettingsPage = lazy(() => import("@/pages/admin/admin-route-pages").then((module) => ({ default: module.AccessSettingsPage })));
 const EmailSettingsPage = lazy(() => import("@/pages/admin/admin-route-pages").then((module) => ({ default: module.EmailSettingsPage })));
 const FeatureAvailabilityPage = lazy(() => import("@/pages/admin/admin-route-pages").then((module) => ({ default: module.FeatureAvailabilityPage })));
+const AgentLessonsPage = lazy(() => import("@/pages/admin/admin-route-pages").then((module) => ({ default: module.AgentLessonsPage })));
 const ChannelsPage = lazy(() => import("@/pages/admin/channels/channels-page"));
 const LogicalModelsPage = lazy(() => import("@/pages/admin/logical-models/logical-models-page"));
 const AdminPluginsPage = lazy(() => import("@/pages/admin/plugins/plugins-page"));
@@ -47,7 +48,6 @@ const SkillsPage = lazy(() => import("@/pages/skills"));
 const PluginsPage = lazy(() => import("@/pages/plugins"));
 const EagleLibraryPage = lazy(() => import("@/pages/plugins/eagle"));
 const TasksPage = lazy(() => import("@/pages/tasks"));
-const WalletPage = lazy(loadWalletPage);
 const PromotionPage = lazy(loadPromotionPage);
 const ProjectsPage = lazy(loadProjectsPage);
 const ProjectDetailPage = lazy(loadProjectDetailPage);
@@ -134,11 +134,7 @@ export const router = createBrowserRouter([
             },
             {
                 path: "/wallet",
-                element: (
-                    <RequireAuth>
-                        <RequireFeature feature="creditsEnabled">{deferred(<WalletPage />)}</RequireFeature>
-                    </RequireAuth>
-                ),
+                element: <RequireAuth>{null}</RequireAuth>,
             },
             {
                 path: "/promotion",
@@ -205,6 +201,7 @@ export const router = createBrowserRouter([
                     { path: "prompt-templates", element: <StoryboardPromptsPage /> },
                     { path: "storyboard-prompts", element: <Navigate to="/admin/prompt-templates" replace /> },
                     { path: "announcements", element: <AnnouncementsPage /> },
+                    { path: "agent-lessons", element: <AgentLessonsPage /> },
                     { path: "resources", element: <StorageResourcesPage /> },
                     { path: "credit-operations", element: <CreditOperationsPage /> },
                     { path: "promotion", element: <AdminPromotionPage /> },
