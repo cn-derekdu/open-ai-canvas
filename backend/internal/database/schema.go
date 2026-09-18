@@ -109,6 +109,12 @@ func Models() []any {
 		&model.TaskTextDelta{},
 		&model.TaskLog{},
 		&model.Result{},
+		// 推广中心（本地二开）：邀请关系、返佣流水与提现申请。
+		&model.InviteCode{},
+		&model.Invitation{},
+		&model.CommissionRecord{},
+		&model.CommissionAllocation{},
+		&model.WithdrawalRequest{},
 	}
 }
 

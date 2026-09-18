@@ -311,5 +311,11 @@ func migrations() []tableMigration {
 		migrateTable[model.TaskTextDelta]("task_text_delta"),
 		migrateTable[model.TaskLog]("task_logs"),
 		migrateTable[model.Result]("results"),
+		// 推广中心（本地二开）。
+		migrateTable[model.InviteCode]("invite_codes"),
+		migrateTable[model.Invitation]("invitations"),
+		migrateTable[model.CommissionRecord]("commission_records"),
+		migrateTable[model.CommissionAllocation]("commission_allocations"),
+		migrateTable[model.WithdrawalRequest]("withdrawal_requests"),
 	}
 }
