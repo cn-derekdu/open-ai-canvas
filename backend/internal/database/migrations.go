@@ -12,8 +12,8 @@ import (
 )
 
 // 本地二开：v16 已分配给 promotion_center 且线上库已应用，版本历史不可变；
-// 因此上游 v1.5.0 的 v16~v19 顺延为 v17~v20。
-const CurrentSchemaVersion int64 = 20
+// 因此上游 v1.5.0 的 v16~v19 顺延为 v17~v20；上游后续新增的 v20~v23 继续顺延为 v21~v24。
+const CurrentSchemaVersion int64 = 24
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -82,6 +82,19 @@ var schemaMigrations = []migration{
 		return tx.AutoMigrate(&model.AgentMemorySetting{})
 	}},
 	{version: 20, name: "payment_plugin_version", checksum: "sha256:payment-plugin-version-v19-20260917", apply: migrateSchemaV20},
+	// 下列 4 条来自上游 v1.5.0 之后的版本；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 21, name: "banner_announcements", checksum: "sha256:banner-announcements-v20-20260917", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.BannerAnnouncement{})
+	}},
+	{version: 22, name: "banner_announcement_title_runs", checksum: "sha256:banner-announcement-title-runs-v21-20260917", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.BannerAnnouncement{})
+	}},
+	{version: 23, name: "banner_announcement_notice_type", checksum: "sha256:banner-announcement-notice-type-v22-20260917", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.BannerAnnouncement{})
+	}},
+	{version: 24, name: "canvas_revision_history", checksum: "sha256:canvas-revision-history-v23-20260918", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.CanvasProject{}, &model.CanvasSnapshot{}, &model.CanvasSnapshotResource{})
+	}},
 }
 
 func migrateSchemaV16(tx *gorm.DB) error {

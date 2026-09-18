@@ -6,6 +6,7 @@ import { ArrowLeftRight, ArrowUp, AtSign, Boxes, Camera, ChevronDown, FileText, 
 import { ModelPicker } from "@/components/model-picker";
 import { defaultConfig, modelOptionName, resolveModelChannel, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { resolveCanvasGenerationModel } from "@/lib/canvas/canvas-project-generation";
+import { clampPromptEditorModalSize, PROMPT_EDITOR_VIEWPORT_MARGIN } from "@/lib/canvas/canvas-prompt-editor-size";
 import { CreditSymbol, requestCreditCost } from "@/constant/credits";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { modelQuoteRequest } from "@/lib/model-pricing";
@@ -57,7 +58,6 @@ type CanvasTheme = (typeof canvasThemes)[keyof typeof canvasThemes];
 const PROMPT_REFERENCE_SHELF_HEIGHT = 58;
 // Keep the compact editor readable at rest: three 20px lines plus 12px vertical padding.
 const PROMPT_EDITOR_MIN_HEIGHT = 72;
-// 放大编辑面向长提示词：展开态直接给出可用的书写高度，而不是从紧凑态的最小高度起跳。
 const PROMPT_EDITOR_EXPANDED_MIN_HEIGHT = 200;
 const PROMPT_EDITOR_LINE_HEIGHT = 20;
 const PROMPT_EDITOR_EXPANDED_LINE_HEIGHT = 24;
@@ -65,14 +65,9 @@ const PROMPT_EDITOR_VERTICAL_PADDING = 12;
 const PROMPT_EDITOR_EXPANDED_VERTICAL_PADDING = 20;
 const PROMPT_EDITOR_MAX_LINES = 8;
 const PROMPT_EDITOR_EXPANDED_MAX_LINES = 14;
-// 展开态宽度必须明显大于浮动编辑面板（其宽度上限为 920px），否则点击后只是换个位置。
 const PROMPT_EDITOR_MODAL_WIDTH = "min(1200px, 92vw)";
-// 展开态拖拽调整的缺省与边界，取值需保证窗口始终可用且不溢出视口。
 const PROMPT_EDITOR_MODAL_DEFAULT_WIDTH = 1200;
 const PROMPT_EDITOR_MODAL_DEFAULT_HEIGHT = 420;
-const PROMPT_EDITOR_MODAL_MIN_WIDTH = 560;
-const PROMPT_EDITOR_MODAL_MIN_HEIGHT = 320;
-const PROMPT_EDITOR_MODAL_VIEWPORT_MARGIN = 24;
 
 export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChange, onConfigChange, onGenerate, mentionReferences = [], onAddReference, onRemoveReference, onReorderReferences, onReplaceReference, onReplaceReferenceFiles, onClose, onNodeMouseDown, onImageSettingsOpenChange, workspaceMode = "professional" }: CanvasNodePromptPanelProps) {
     const globalConfig = useEffectiveConfig();
@@ -90,13 +85,11 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const [presetOpen, setPresetOpen] = useState(false);
     const [expandedPresetOpen, setExpandedPresetOpen] = useState(false);
     const [expandedPromptOpen, setExpandedPromptOpen] = useState(false);
-    // 展开态支持右下角拖拽改窗口尺寸；null 表示沿用自适应尺寸。
     const [expandedModalSize, setExpandedModalSize] = useState<{ width: number; height: number } | null>(null);
     const expandedModalRef = useRef<HTMLDivElement>(null);
     const [promptContentHeight, setPromptContentHeight] = useState(() => estimatePromptContentHeight(savedPrompt, false));
     const [expandedPromptContentHeight, setExpandedPromptContentHeight] = useState(() => estimatePromptContentHeight(savedPrompt, true));
     const [manualPromptHeight, setManualPromptHeight] = useState<number | null>(null);
-    const [manualExpandedPromptHeight, setManualExpandedPromptHeight] = useState<number | null>(null);
     const [paramsExpanded, setParamsExpanded] = useState(false); // #98 决策2：B区参数区折叠状态（手风琴）
     const [promptOptimizerOpen, setPromptOptimizerOpen] = useState(false);
     const [autoLinkEnabled, setAutoLinkEnabled] = useState(true);
@@ -176,8 +169,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const promptBounds = promptEditorBounds(false, activeReferenceCount > 0);
     const expandedPromptBounds = promptEditorBounds(true, activeReferenceCount > 0);
     const composerHeight = clampPromptHeight(manualPromptHeight ?? promptContentHeight + (activeReferenceCount ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), promptBounds);
-    const expandedComposerHeight = clampPromptHeight(manualExpandedPromptHeight ?? expandedPromptContentHeight + (activeReferenceCount ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), expandedPromptBounds);
-    // 首次拖拽以当前渲染尺寸为基准，避免固定尺寸时出现跳变。
+    const expandedComposerHeight = clampPromptHeight(expandedPromptContentHeight + (activeReferenceCount ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), expandedPromptBounds);
     const measureExpandedModalSize = () => {
         const rect = expandedModalRef.current?.getBoundingClientRect();
         if (!rect?.width || !rect.height) return { width: PROMPT_EDITOR_MODAL_DEFAULT_WIDTH, height: PROMPT_EDITOR_MODAL_DEFAULT_HEIGHT };
@@ -202,8 +194,19 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
         setPromptContentHeight(estimatePromptContentHeight(normalizedSavedPrompt, false));
         setExpandedPromptContentHeight(estimatePromptContentHeight(normalizedSavedPrompt, true));
         setManualPromptHeight(null);
-        setManualExpandedPromptHeight(null);
     }, [node.id]);
+
+    useEffect(() => {
+        if (!expandedPromptOpen) return;
+        const constrainSize = () => setExpandedModalSize((size) => {
+            if (!size) return size;
+            const next = clampExpandedModalSize(size);
+            return next.width === size.width && next.height === size.height ? size : next;
+        });
+        constrainSize();
+        window.addEventListener("resize", constrainSize);
+        return () => window.removeEventListener("resize", constrainSize);
+    }, [expandedPromptOpen]);
 
     useEffect(() => {
         if (!creditsEnabled || !quoteRequest) {
@@ -460,7 +463,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
         const height = expanded ? expandedComposerHeight : composerHeight;
         return (
             <>
-                <div className={fill ? "canvas-node-composer-editor min-h-0 flex-1" : "canvas-node-composer-editor"} style={fill ? undefined : { height }}>
+                <div className={fill ? "canvas-node-composer-editor flex-1" : "canvas-node-composer-editor"} style={fill ? { minHeight: bounds.min } : { height, ...(expanded ? { flexShrink: 0 } : null) }}>
                     <ConnectedReferenceShelf
                         targetNodeId={node.id}
                         references={resolvedMentionReferences}
@@ -489,12 +492,12 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                         aria-label={`${modeDisplayName(mode)}提示词`}
                     />
                 </div>
-                <PromptResizeHandle
+                {!expanded && <PromptResizeHandle
                     height={height}
                     min={bounds.min}
                     max={bounds.max}
-                    onResize={expanded ? setManualExpandedPromptHeight : setManualPromptHeight}
-                />
+                    onResize={setManualPromptHeight}
+                />}
             </>
         );
     };
@@ -556,6 +559,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                 footer={null}
                 centered
                 width={expandedModalSize ? expandedModalSize.width : PROMPT_EDITOR_MODAL_WIDTH}
+                style={{ maxWidth: `calc(100vw - ${PROMPT_EDITOR_VIEWPORT_MARGIN}px)` }}
                 destroyOnHidden
                 onCancel={() => {
                     setExpandedPresetOpen(false);
@@ -566,15 +570,17 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                     body: { minHeight: 0, padding: 0 },
                 }}
             >
-                <div ref={expandedModalRef} className="relative flex min-h-0 flex-col gap-2.5 overflow-visible p-3" style={{ ...composerTokens, color: theme.node.text, ...(expandedModalSize ? { height: expandedModalSize.height } : null) }}>
-                    <div className="shrink-0 pr-8">{renderComposerHeader(true)}</div>
-                    {renderPromptEditor(true, Boolean(expandedModalSize))}
-                    {hasVideoPromptTools ? (
-                        <div className="canvas-node-composer-parameters shrink-0">
-                            <CanvasVideoPromptTools metadata={node.metadata} frameOptions={videoFrameOptions} onMetadataChange={(patch) => onConfigChange(node.id, patch)} />
-                        </div>
-                    ) : null}
-                    <div className="shrink-0">{renderComposerControls(true)}</div>
+                <div ref={expandedModalRef} className="relative flex min-h-0 flex-col" style={{ ...composerTokens, color: theme.node.text, maxHeight: `calc(100dvh - ${PROMPT_EDITOR_VIEWPORT_MARGIN}px)`, ...(expandedModalSize ? { height: expandedModalSize.height } : null) }}>
+                    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-3">
+                        <div className="shrink-0 pr-8">{renderComposerHeader(true)}</div>
+                        {renderPromptEditor(true, Boolean(expandedModalSize))}
+                        {hasVideoPromptTools ? (
+                            <div className="canvas-node-composer-parameters shrink-0">
+                                <CanvasVideoPromptTools metadata={node.metadata} frameOptions={videoFrameOptions} onMetadataChange={(patch) => onConfigChange(node.id, patch)} />
+                            </div>
+                        ) : null}
+                        <div className="shrink-0">{renderComposerControls(true)}</div>
+                    </div>
                     <PromptModalResizeHandle size={expandedModalSize} measure={measureExpandedModalSize} onResize={setExpandedModalSize} accent={theme.node.muted} />
                 </div>
             </Modal>
@@ -938,15 +944,9 @@ function PromptResizeHandle({ height, min, max, onResize }: { height: number; mi
 }
 
 function clampExpandedModalSize(size: { width: number; height: number }) {
-    const maxWidth = Math.max(PROMPT_EDITOR_MODAL_MIN_WIDTH, window.innerWidth - PROMPT_EDITOR_MODAL_VIEWPORT_MARGIN);
-    const maxHeight = Math.max(PROMPT_EDITOR_MODAL_MIN_HEIGHT, window.innerHeight - PROMPT_EDITOR_MODAL_VIEWPORT_MARGIN);
-    return {
-        width: Math.min(maxWidth, Math.max(PROMPT_EDITOR_MODAL_MIN_WIDTH, Math.round(size.width))),
-        height: Math.min(maxHeight, Math.max(PROMPT_EDITOR_MODAL_MIN_HEIGHT, Math.round(size.height))),
-    };
+    return clampPromptEditorModalSize(size, { width: window.innerWidth, height: window.innerHeight });
 }
 
-// 放大编辑窗口右下角的对角拖拽手柄，交互方式与 Agent 面板保持一致。
 function PromptModalResizeHandle({ size, measure, onResize, accent }: { size: { width: number; height: number } | null; measure: () => { width: number; height: number }; onResize: (size: { width: number; height: number }) => void; accent: string }) {
     const dragRef = useRef<{ pointerId: number; startX: number; startY: number; width: number; height: number } | null>(null);
 
@@ -995,7 +995,8 @@ function PromptModalResizeHandle({ size, measure, onResize, accent }: { size: { 
                     return;
                 }
                 event.stopPropagation();
-                onResize(clampExpandedModalSize({ width: drag.width + event.clientX - drag.startX, height: drag.height + event.clientY - drag.startY }));
+                // The modal stays centered, so each edge moves by half the size change.
+                onResize(clampExpandedModalSize({ width: drag.width + 2 * (event.clientX - drag.startX), height: drag.height + 2 * (event.clientY - drag.startY) }));
             }}
             onPointerUp={finishResize}
             onPointerCancel={finishResize}
