@@ -209,11 +209,11 @@ func TestMigrateSchemaV20UpgradesExistingDatabaseWithBannerAnnouncements(t *test
 	if !db.Migrator().HasTable(&model.BannerAnnouncement{}) {
 		t.Fatal("v20 migration did not create banner_announcements table")
 	}
-	// 模拟旧库升级：删表 + 删除 v20 记录，重跑迁移应能重建。
+	// 模拟旧库升级：删表 + 删除 v21 记录，重跑迁移应能重建。
 	if err := db.Migrator().DropTable(&model.BannerAnnouncement{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 20).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 21).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -246,7 +246,7 @@ func TestMigrateSchemaV21AddsBannerAnnouncementTitleRuns(t *testing.T) {
 	if err := db.Migrator().DropColumn(&model.BannerAnnouncement{}, "title_runs"); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 21).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 22).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -286,7 +286,7 @@ func TestMigrateSchemaV22AddsBannerAnnouncementNoticeType(t *testing.T) {
 	if err := db.Migrator().DropColumn(&model.BannerAnnouncement{}, "notice_type"); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 22).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 23).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -325,7 +325,7 @@ func TestMigrateSchemaV23BackfillsCanvasRevisions(t *testing.T) {
 	if err := db.Exec(`INSERT INTO canvas_projects (id, user_id, title, payload_json) VALUES ('legacy', 'owner', 'Existing canvas', '{"nodes":[]}')`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 23).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 24).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
