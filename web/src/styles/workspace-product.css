@@ -693,6 +693,11 @@
     background: var(--user-surface);
 }
 
+/* 内容区自带内边距（.app-changelog-scroll），弹窗 body 不再叠加，保持产品壳层拥有间距。 */
+.app-changelog-modal .ant-modal-body {
+    padding: 0;
+}
+
 .app-changelog-heading {
     display: flex;
     align-items: center;
