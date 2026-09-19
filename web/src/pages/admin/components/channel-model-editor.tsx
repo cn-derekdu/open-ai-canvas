@@ -372,27 +372,31 @@ export function ChannelModelEditor({
                                                 ]}
                                             >
                                                 {(fields, { add, remove }, { errors }) => (
-                                                    <div className="space-y-3">
-                                                        {fields.map((field, index) => (
-                                                            <PriceTierFields
-                                                                key={field.key}
-                                                                index={field.name}
-                                                                ordinal={index + 1}
-                                                                form={form}
-                                                                capability={modelCapability}
-                                                                protocol={modelProtocol}
-                                                                capabilityConfig={capabilityConfig}
-                                                                modelUpstream={modelUpstream}
-                                                                onDirty={() => {
-                                                                    dirtyRef.current = true;
-                                                                }}
-                                                                onRemove={() => remove(field.name)}
-                                                            />
-                                                        ))}
-                                                        <Button className="admin-model-editor-add-tier" type="dashed" block icon={<Plus className="size-4" />} onClick={() => add(defaultPriceTier(hasDefaultPriceTier ? "advanced" : "default"))}>
-                                                            {hasDefaultPriceTier ? "新增规格价格" : "新增统一默认价格"}
-                                                        </Button>
-                                                        <Form.ErrorList errors={errors} />
+                                                    <div className="admin-price-tier-list-shell">
+                                                        <div className="admin-price-tier-list" aria-label="积分价格规则列表">
+                                                            {fields.map((field, index) => (
+                                                                <PriceTierFields
+                                                                    key={field.key}
+                                                                    index={field.name}
+                                                                    ordinal={index + 1}
+                                                                    form={form}
+                                                                    capability={modelCapability}
+                                                                    protocol={modelProtocol}
+                                                                    capabilityConfig={capabilityConfig}
+                                                                    modelUpstream={modelUpstream}
+                                                                    onDirty={() => {
+                                                                        dirtyRef.current = true;
+                                                                    }}
+                                                                    onRemove={() => remove(field.name)}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <div className="admin-price-tier-list-footer">
+                                                            <Button className="admin-model-editor-add-tier" type="dashed" block icon={<Plus className="size-4" />} onClick={() => add(defaultPriceTier(hasDefaultPriceTier ? "advanced" : "default"))}>
+                                                                {hasDefaultPriceTier ? "新增规格价格" : "新增统一默认价格"}
+                                                            </Button>
+                                                            <Form.ErrorList errors={errors} />
+                                                        </div>
                                                     </div>
                                                 )}
                                             </Form.List>

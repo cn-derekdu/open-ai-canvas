@@ -57,7 +57,7 @@ test("model reference limits use compact rows only inside the admin editor", asy
     expect(numberField).toContain("align-items: center;");
     const switches = sourceSection(css, ".admin-model-editor-references .admin-capability-boolean-field label {", "@media (min-width: 601px)");
     expect(switches).toContain("display: flex;");
-    expect(compactSource(css)).toContain(".admin-model-editor-references .admin-capability-reference-grid { align-items: start;");
+    expect(compactSource(css)).toContain(".admin-model-editor-references .admin-capability-reference-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start;");
     expect(compactSource(css)).toContain(".admin-model-editor-modal .admin-capability-reference-grid { grid-template-columns: minmax(0, 1fr);");
 });
 
@@ -277,17 +277,17 @@ test("request logs display user credit billing independently from upstream cost"
     ]);
 
     const billingSummary = sourceSection(listSource, "function BillingSummary", "function MediaResult");
-    expect(listSource).toContain('title: "积分计费"');
+    expect(listSource).toContain('title: "积分计算"');
     expect(listSource).toContain('title: "请求阶段 / 状态"');
     expect(listSource).toContain('description="模型生成与结果下载记录；仅计费调用扣除积分"');
     expect(billingSummary).toContain("billingAmountMicrocredits");
     expect(billingSummary).toContain("billingAvailable");
     expect(billingSummary).toContain("!log.billable");
-    expect(billingSummary).toContain("不计费");
+    expect(billingSummary).toContain("未扣积分");
     expect(billingSummary).not.toContain("costAvailable");
     expect(detailSource).toContain('["请求阶段", requestKindText(log.requestKind)]');
     expect(detailSource).toContain('["计费属性", log.billable ? "计费调用" : "不计费"]');
-    expect(detailSource).toContain('["积分计费", billingText(log)]');
+    expect(detailSource).toContain('["销售价格（积分）", billingText(log)]');
     expect(detailSource).toContain('["上游成本", log.costAvailable');
     expect(apiSource).toContain("billingAmountMicrocredits: number");
     expect(apiSource).toContain("billingAvailable: boolean");
@@ -356,7 +356,7 @@ test("banner announcement editor keeps title styles through edit, save and statu
 
     // emoji 面板：默认收起（Popover 点击触发），插入后不自动关闭，方便连续插入。
     expect(emojiPickerSource).toContain('trigger="click"');
-    expect(emojiPickerSource).toContain('onPick(item.char)');
+    expect(emojiPickerSource).toContain("onPick(item.char)");
     expect(noticeSource).toContain("BANNER_NOTICE_EMOJI_GROUPS");
     expect(noticeSource).not.toContain("DEFAULT_ICON");
 

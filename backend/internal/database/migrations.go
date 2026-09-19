@@ -13,8 +13,8 @@ import (
 
 // 本地二开：v16 已分配给 promotion_center 且线上库已应用，版本历史不可变；
 // 因此上游 v1.5.0 的 v16~v19 顺延为 v17~v20；上游后续新增的 v20~v23 顺延为 v21~v24，
-// v24~v27 继续顺延为 v25~v28。
-const CurrentSchemaVersion int64 = 28
+// v24~v27 继续顺延为 v25~v28，v28~v29 继续顺延为 v29~v30。
+const CurrentSchemaVersion int64 = 30
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -101,6 +101,13 @@ var schemaMigrations = []migration{
 	{version: 26, name: "video_token_formula_snapshot", checksum: "sha256:video-token-formula-snapshot-v25", apply: migrateVideoTokenFormulaSnapshot},
 	{version: 27, name: "channel_model_description", checksum: "sha256:channel-model-description-v26", apply: migrateChannelModelDescription},
 	{version: 28, name: "channel_credit_cost", checksum: "sha256:channel-credit-cost-v27", apply: migrateChannelCreditCost},
+	// 下列 2 条来自上游 v1.5.5；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 29, name: "agent_execution_journal", checksum: "sha256:agent-execution-journal-v28", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.CloudAgentExecution{}, &model.CloudAgentEventRecord{}, &model.CloudAgentMessageRecord{}, &model.Task{}, &model.BillingOrder{})
+	}},
+	{version: 30, name: "agent_resource_leases", checksum: "sha256:agent-resource-leases-v29-20260919", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.CloudAgentResourceLease{})
+	}},
 }
 
 func migrateChannelCreditCost(tx *gorm.DB) error {
