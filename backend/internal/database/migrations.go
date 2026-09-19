@@ -12,8 +12,9 @@ import (
 )
 
 // 本地二开：v16 已分配给 promotion_center 且线上库已应用，版本历史不可变；
-// 因此上游 v1.5.0 的 v16~v19 顺延为 v17~v20；上游后续新增的 v20~v23 继续顺延为 v21~v24。
-const CurrentSchemaVersion int64 = 24
+// 因此上游 v1.5.0 的 v16~v19 顺延为 v17~v20；上游后续新增的 v20~v23 顺延为 v21~v24，
+// v24~v27 继续顺延为 v25~v28。
+const CurrentSchemaVersion int64 = 28
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -95,6 +96,56 @@ var schemaMigrations = []migration{
 	{version: 24, name: "canvas_revision_history", checksum: "sha256:canvas-revision-history-v23-20260918", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.CanvasProject{}, &model.CanvasSnapshot{}, &model.CanvasSnapshotResource{})
 	}},
+	// 下列 4 条来自上游 v1.5.4；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 25, name: "channel_model_label", checksum: "sha256:channel-model-label-v24", apply: migrateChannelModelLabel},
+	{version: 26, name: "video_token_formula_snapshot", checksum: "sha256:video-token-formula-snapshot-v25", apply: migrateVideoTokenFormulaSnapshot},
+	{version: 27, name: "channel_model_description", checksum: "sha256:channel-model-description-v26", apply: migrateChannelModelDescription},
+	{version: 28, name: "channel_credit_cost", checksum: "sha256:channel-credit-cost-v27", apply: migrateChannelCreditCost},
+}
+
+func migrateChannelCreditCost(tx *gorm.DB) error {
+	for _, entity := range []any{&model.ChannelModelPriceTier{}, &model.BillingOrder{}} {
+		for _, column := range []string{"cost_configured", "cost_unit_price_microcredits", "cost_input_token_price_microcredits", "cost_output_token_price_microcredits", "cost_cached_token_price_microcredits"} {
+			if !tx.Migrator().HasColumn(entity, column) {
+				if err := tx.Migrator().AddColumn(entity, column); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for _, column := range []string{"CostBillingMode", "CostQuantity", "CostVideoFormulaTokens"} {
+		if !tx.Migrator().HasColumn(&model.BillingOrder{}, column) {
+			if err := tx.Migrator().AddColumn(&model.BillingOrder{}, column); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func migrateChannelModelDescription(tx *gorm.DB) error {
+	if tx.Migrator().HasColumn(&model.ChannelModel{}, "Description") {
+		return nil
+	}
+	return tx.Migrator().AddColumn(&model.ChannelModel{}, "Description")
+}
+
+func migrateVideoTokenFormulaSnapshot(tx *gorm.DB) error {
+	for _, field := range []string{"VideoFormulaTokens", "UsageSource"} {
+		if !tx.Migrator().HasColumn(&model.BillingOrder{}, field) {
+			if err := tx.Migrator().AddColumn(&model.BillingOrder{}, field); err != nil {
+				return fmt.Errorf("增加视频 Token 结算字段 %s：%w", field, err)
+			}
+		}
+	}
+	return nil
+}
+
+func migrateChannelModelLabel(tx *gorm.DB) error {
+	if tx.Migrator().HasColumn(&model.ChannelModel{}, "ChannelLabel") {
+		return nil
+	}
+	return tx.Migrator().AddColumn(&model.ChannelModel{}, "ChannelLabel")
 }
 
 func migrateSchemaV16(tx *gorm.DB) error {

@@ -447,7 +447,7 @@ func TestMigrateSchemaV4AddsResourceUploadKeyToExistingSchema(t *testing.T) {
 	if err := db.Exec(`CREATE TABLE resources (id TEXT PRIMARY KEY, user_id TEXT NOT NULL)`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.ModelChannel{}, &model.ChannelModel{}); err != nil {
+	if err := db.AutoMigrate(&model.ModelChannel{}, &model.ChannelModel{}, &model.ChannelModelPriceTier{}, &model.BillingOrder{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
@@ -491,7 +491,7 @@ func TestMigrateSchemaRepairsLegacyAssetFoldersMigrationOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Resource{}, &model.Asset{}, &model.AssetFolder{}, &model.ModelChannel{}, &model.ChannelModel{}); err != nil {
+	if err := db.AutoMigrate(&model.Resource{}, &model.Asset{}, &model.AssetFolder{}, &model.ModelChannel{}, &model.ChannelModel{}, &model.ChannelModelPriceTier{}, &model.BillingOrder{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&schemaMigration{}); err != nil {

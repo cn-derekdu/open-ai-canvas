@@ -68,7 +68,7 @@ import { CanvasZoomControls } from "@/components/canvas/canvas-zoom-controls";
 import { CanvasShareModal } from "@/components/canvas/canvas-share-modal";
 import { CanvasScriptEditor, CanvasScriptNodeContent } from "@/components/canvas/canvas-script-node";
 import { CanvasBatchTableNodeContent } from "@/components/canvas/canvas-batch-table-node";
-import { promoteLegacyBatchTableSize } from "@/lib/canvas/canvas-batch-table";
+import { batchReferenceColumns, promoteLegacyBatchTableSize } from "@/lib/canvas/canvas-batch-table";
 import { STORYBOARD_HEADER_HEIGHT, STORYBOARD_ROW_HEIGHT, storyboardMinNodeHeight, storyboardTableHeight } from "@/lib/canvas/canvas-storyboard-layout";
 import { CanvasDirectorNodePanel } from "@/components/canvas/director/canvas-director-node-panel";
 import { CanvasVersionCompareModal } from "@/components/canvas/canvas-version-compare-modal";
@@ -831,6 +831,7 @@ function InfiniteCanvasPage() {
         lightingNodeId,
         emotionNodeId,
         annotationNodeId,
+        annotationEditNodeId,
         createImageReversePromptNodes,
         openPortraitTextureEditor,
         cropImageNode,
@@ -852,6 +853,10 @@ function InfiniteCanvasPage() {
         handleSegmentConfirm,
         maskEditImageNode,
         maskEditNodeId,
+        imageEditNodeId,
+        imageEditPreset,
+        layerDecompositionNodeId,
+        textEditNodeId,
         mergeSelectedVideos,
         mergeVideosByIds,
         mergeVideoProgress,
@@ -865,8 +870,22 @@ function InfiniteCanvasPage() {
         setLightingNodeId,
         setEmotionNodeId,
         setAnnotationNodeId,
+        setAnnotationEditNodeId,
         setCropNodeId,
         setMaskEditNodeId,
+        setImageEditNodeId,
+        setImageEditPreset,
+        openBackgroundRemoval,
+        openLayerDecomposition,
+        decomposeImageLayers,
+        setLayerDecompositionNodeId,
+        setTextEditNodeId,
+        openTextEditNode,
+        openAnnotationEditNode,
+        detectImageText,
+        editTextImageNode,
+        editAnnotatedImageNode,
+        editImageNode,
         setUpscaleNodeId,
         splitImageNode,
         openVideoFrameExtractor,
@@ -1369,6 +1388,7 @@ function InfiniteCanvasPage() {
         imageAssets,
         infoNode,
         maskEditNode,
+        imageEditNode,
         mentionReferencesByNodeId,
         nodeById,
         previewNode,
@@ -1399,6 +1419,7 @@ function InfiniteCanvasPage() {
         infoNodeId,
         cropNodeId,
         maskEditNodeId,
+        imageEditNodeId,
         annotationNodeId,
         splitNodeId: null,
         upscaleNodeId,
@@ -1913,6 +1934,28 @@ function InfiniteCanvasPage() {
         });
     }, [connections, projectLoaded, setNodes, syncRowsFromConnections]);
 
+    const handleUploadBatchReference = useCallback(async (tableNodeId: string, rowId: string, columnIndex: number, file: File) => {
+        const tableNode = nodesRef.current.find((item) => item.id === tableNodeId);
+        const table = tableNode?.metadata?.batchTable;
+        const row = table?.rows.find((item) => item.id === rowId);
+        if (!tableNode || !table || !row) return;
+        const existingId = row.inputNodeIds[columnIndex];
+        if (existingId) {
+            await replaceNodeMedia(existingId, file);
+            return;
+        }
+        const rowIndex = table.rows.findIndex((item) => item.id === rowId);
+        const uploadedNodeId = await createFileNode(file, {
+            x: tableNode.position.x - 240,
+            y: tableNode.position.y + 170 + Math.max(0, rowIndex) * 220,
+        });
+        if (!uploadedNodeId) return;
+        const inputNodeIds = Array.from({ length: Math.max(batchReferenceColumns(table).length, columnIndex + 1) }, (_, index) => row.inputNodeIds[index] || "");
+        inputNodeIds[columnIndex] = uploadedNodeId;
+        updateBatchRow(tableNodeId, rowId, { inputNodeIds });
+        message.success(`已上传并填入参考图 ${columnIndex + 1}`);
+    }, [createFileNode, message, nodesRef, replaceNodeMedia, updateBatchRow]);
+
     const { addScriptRow, createAndGenerateScriptVideos, createScriptActionBoards, createScriptImageNodes, createScriptVideoNodes, generateScriptImages, generateScriptRows, generateScriptVideos, removeScriptRow, replaceScriptRows, updateScriptRow } =
         useCanvasStoryboard({
             projectId,
@@ -2127,22 +2170,7 @@ function InfiniteCanvasPage() {
                         onFocusOutput={(nodeId) => focusCanvasImageNode(nodeId)}
                         onReorderReferenceColumns={(fromColumnId, toColumnId) => reorderBatchReferenceColumns(contentNode.id, fromColumnId, toColumnId)}
                         onMoveReferenceCell={(sourceRowId, sourceColumnIndex, targetRowId, targetColumnIndex) => moveBatchReferenceCell(contentNode.id, sourceRowId, sourceColumnIndex, targetRowId, targetColumnIndex)}
-                        onUploadReference={(rowId, columnIndex, file) => {
-                            const row = contentNode.metadata?.batchTable?.rows.find((item) => item.id === rowId);
-                            const existingId = row?.inputNodeIds[columnIndex];
-                            if (existingId) {
-                                void replaceNodeMedia(existingId, file);
-                                return;
-                            }
-                            void createFileNode(file, { x: contentNode.position.x - 180, y: contentNode.position.y + columnIndex * 90 }).then((insertedId) => {
-                                if (!insertedId) return;
-                                const currentRow = nodesRef.current.find((item) => item.id === contentNode.id)?.metadata?.batchTable?.rows.find((item) => item.id === rowId);
-                                const ids = [...(currentRow?.inputNodeIds || [])];
-                                while (ids.length <= columnIndex) ids.push("");
-                                ids[columnIndex] = insertedId;
-                                updateBatchRow(contentNode.id, rowId, { inputNodeIds: ids });
-                            });
-                        }}
+                        onUploadReference={(rowId, columnIndex, file) => { void handleUploadBatchReference(contentNode.id, rowId, columnIndex, file); }}
                         onConnectStart={(event, handleId) => handleConnectStart(event, contentNode.id, "target", handleId)}
                         onConnectDrop={(event, handleId) => handleConnectDrop(event, contentNode.id, handleId)}
                     />
@@ -2232,6 +2260,8 @@ function InfiniteCanvasPage() {
             generateScriptImages,
             generateScriptRows,
             generateScriptVideos,
+            handleUploadBatchReference,
+            moveBatchReferenceCell,
             handleConfigNodeChange,
             handleConnectDrop,
             handleConnectStart,
@@ -2244,6 +2274,8 @@ function InfiniteCanvasPage() {
             patchBatchTable,
             removeBatchReferenceColumn,
             removeBatchRow,
+            reorderBatchReferenceColumns,
+            replaceCanvasNodeMedia,
             removeScriptRow,
             retryFailedBatchItems,
             runningNodeId,
@@ -2802,7 +2834,11 @@ function InfiniteCanvasPage() {
                             onDownload={downloadNodeImage}
                             onSaveAsset={(node) => void saveNodeAsset(node)}
                             onAnnotate={(node) => setAnnotationNodeId(node.id)}
+                            onAnnotationEdit={openAnnotationEditNode}
                             onMaskEdit={(node) => setMaskEditNodeId(node.id)}
+                            onRemoveBackground={openBackgroundRemoval}
+                            onLayerDecomposition={openLayerDecomposition}
+                            onTextEdit={openTextEditNode}
                             onEmotion={(node) => {
                                 setDialogNodeId(null);
                                 setEmotionNodeId((current) => (current === node.id ? null : node.id));
@@ -3123,15 +3159,32 @@ function InfiniteCanvasPage() {
                         <CanvasProjectMediaDialogs
                             cropNode={cropNode}
                             annotationNode={annotationNode}
+                            annotationEditNode={annotationEditNodeId ? nodeById.get(annotationEditNodeId) || null : null}
                             maskEditNode={maskEditNode}
+                            imageEditNode={imageEditNode}
+                            layerDecompositionNode={layerDecompositionNodeId ? nodeById.get(layerDecompositionNodeId) || null : null}
+                            textEditNode={textEditNodeId ? nodeById.get(textEditNodeId) || null : null}
+                            imageEditPreset={imageEditPreset}
                             upscaleNode={upscaleNode}
                             onCloseCrop={() => setCropNodeId(null)}
                             onCloseAnnotation={() => setAnnotationNodeId(null)}
+                            onCloseAnnotationEdit={() => setAnnotationEditNodeId(null)}
                             onCloseMaskEdit={() => setMaskEditNodeId(null)}
+                            onCloseImageEdit={() => { setImageEditNodeId(null); setImageEditPreset(null); }}
+                            onCloseLayerDecomposition={() => setLayerDecompositionNodeId(null)}
+                            onCloseTextEdit={() => setTextEditNodeId(null)}
                             onCloseUpscale={() => setUpscaleNodeId(null)}
                             onCrop={(node, crop) => void cropImageNode(node, crop)}
                             onAnnotate={(node, dataUrl) => void saveAnnotatedImageNode(node, dataUrl)}
+                            onAnnotationEdit={(node, payload) => void editAnnotatedImageNode(node, payload)}
                             onMaskEdit={(node, payload) => void maskEditImageNode(node, payload)}
+                            onImageOperation={(node, payload) => void editImageNode(node, payload)}
+                            onLayerDecomposition={(node, payload) => void decomposeImageLayers(node, payload)}
+                            onDetectText={() => {
+                                const node = textEditNodeId ? nodeById.get(textEditNodeId) : null;
+                                return node ? detectImageText(node) : Promise.reject(new Error("图片节点已不存在"));
+                            }}
+                            onTextEdit={(node, payload) => void editTextImageNode(node, payload)}
                             onUpscale={(node, params) => void upscaleImageNode(node, params)}
                             config={effectiveConfig}
                         />
