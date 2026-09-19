@@ -13,10 +13,10 @@ type InviteCode struct {
 
 // Invitation 记录邀请关系。被邀请人唯一，绑定后不再变更，避免反复绑定刷返佣。
 type Invitation struct {
-	ID        string    `json:"id" gorm:"primaryKey;size:36"`
-	InviterID string    `json:"inviterId" gorm:"index;size:36"`
-	InviteeID string    `json:"inviteeId" gorm:"uniqueIndex;size:36"`
-	Code      string    `json:"code" gorm:"size:32"`
+	ID        string `json:"id" gorm:"primaryKey;size:36"`
+	InviterID string `json:"inviterId" gorm:"index;size:36"`
+	InviteeID string `json:"inviteeId" gorm:"uniqueIndex;size:36"`
+	Code      string `json:"code" gorm:"size:32"`
 	// Source 记录绑定来源：link（邀请链接）、code（手填邀请码）、manual（管理员补绑）。
 	Source    string    `json:"source" gorm:"size:24"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -46,14 +46,14 @@ type CommissionRecord struct {
 	InviterID string `json:"inviterId" gorm:"index;size:36"`
 	InviteeID string `json:"inviteeId" gorm:"index;size:36"`
 	// SourceType/SourceID 指向返佣来源，当前只有充值：payment_topup。
-	SourceType       string           `json:"sourceType" gorm:"size:24"`
-	SourceID         string           `json:"sourceId" gorm:"index;size:64"`
-	BaseMicrocredits int64            `json:"baseMicrocredits"`
-	RatioBPS         int64            `json:"ratioBasisPoints"`
-	AmountMicrocredits int64          `json:"amountMicrocredits"`
-	Status           CommissionStatus `json:"status" gorm:"index;size:24"`
-	AvailableAt      time.Time        `json:"availableAt" gorm:"index"`
-	WithdrawalID     string           `json:"withdrawalId,omitempty" gorm:"index;size:36"`
+	SourceType         string           `json:"sourceType" gorm:"size:24"`
+	SourceID           string           `json:"sourceId" gorm:"index;size:64"`
+	BaseMicrocredits   int64            `json:"baseMicrocredits"`
+	RatioBPS           int64            `json:"ratioBasisPoints"`
+	AmountMicrocredits int64            `json:"amountMicrocredits"`
+	Status             CommissionStatus `json:"status" gorm:"index;size:24"`
+	AvailableAt        time.Time        `json:"availableAt" gorm:"index"`
+	WithdrawalID       string           `json:"withdrawalId,omitempty" gorm:"index;size:36"`
 	// AllocatedMicrocredits 是已被转入积分或提现占用的额度，剩余可用为 Amount - Allocated。
 	// 一条返佣可能被拆给多次操作，因此必须记录分配明细而不是只改状态。
 	AllocatedMicrocredits int64 `json:"allocatedMicrocredits"`
@@ -105,9 +105,9 @@ const (
 
 // WithdrawalRequest 是用户用可用返佣发起的提现申请，必须经管理员审核。
 type WithdrawalRequest struct {
-	ID                 string           `json:"id" gorm:"primaryKey;size:36"`
-	UserID             string           `json:"userId" gorm:"index;size:36"`
-	AmountMicrocredits int64            `json:"amountMicrocredits"`
+	ID                 string `json:"id" gorm:"primaryKey;size:36"`
+	UserID             string `json:"userId" gorm:"index;size:36"`
+	AmountMicrocredits int64  `json:"amountMicrocredits"`
 	// Channel/Account 是收款信息：alipay、wechat、bank。
 	Channel     string           `json:"channel" gorm:"size:24"`
 	Account     string           `json:"account" gorm:"size:160"`
