@@ -30,8 +30,13 @@ function priceLabel(tier: ChannelModelPriceTier, capability: ChannelModel["capab
         const sale = tier.priceConfigured ? tier[key] : undefined;
         return (
             <div key={key}>
-                <span>{label ? `${label} ` : ""}{tier.costPricing?.configured ? formatModelPrice(cost) : "未配置成本"} / {tier.priceConfigured ? formatModelPrice(sale) : "未配置售价"}</span>
-                <span className="admin-model-cost-unit">积分 / {unit} · 利润率 {formatModelMargin(cost, sale)}</span>
+                <span>
+                    {label ? `${label} ` : ""}
+                    {tier.costPricing?.configured ? formatModelPrice(cost) : "未配置成本"} / {tier.priceConfigured ? formatModelPrice(sale) : "未配置售价"}
+                </span>
+                <span className="admin-model-cost-unit">
+                    积分 / {unit} · 利润率 {formatModelMargin(cost, sale)}
+                </span>
             </div>
         );
     });
