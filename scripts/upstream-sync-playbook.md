@@ -59,10 +59,12 @@ git rebase upstream/main
 ## 4. 阶段四：本地验证
 
 ```bash
+bash scripts/check-migrations.sh       # 迁移编号体检，必须先于编译
 cd web && bun run typecheck && bun run lint && bun run test:canvas
 cd ../backend && go build ./...        # 改动涉及后端时
 ```
 
+- **迁移编号体检先于编译**：检查 `schemaMigrations` 的版本号是否重复、断号，以及 `CurrentSchemaVersion` 是否与最大编号一致。上游合并时 git 自动合并可能产生重复编号（两处新增不相邻时**不报冲突**），人为顺延可能跳号，漏改常量则会让迁移**静默不执行**——前两者 `go build` 照样通过，后者更是服务照常启动、页面照常 200，都只能靠这一步拦截
 - 涉及画布、生成、权限、SSE 时按 `AGENTS.md` 第 8 节补最小充分验证
 - 失败用例要区分"本次引入"与"既有问题"，不得跳过
 
