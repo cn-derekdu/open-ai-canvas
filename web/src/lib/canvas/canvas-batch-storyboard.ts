@@ -2,10 +2,26 @@ import { createStoryboardRow } from "@/lib/canvas/canvas-project-domain";
 import type { CanvasBatchRow, CanvasBatchTableData, CanvasNodeData, StoryboardRow } from "@/types/canvas";
 
 type StoryboardField =
-    | "shotNumber" | "durationSeconds" | "plotDescription" | "dialogue" | "narrativeIntent" | "viewerPOV"
-    | "performanceBlocking" | "shotSize" | "emotion" | "lightingAndAtmosphere" | "audioEffects" | "camera"
-    | "motion" | "timeBeats" | "imageGenerationPrompt" | "videoMotionPrompt" | "mustHave" | "optionalDetails"
-    | "continuityOut" | "negativePrompt";
+    | "shotNumber"
+    | "durationSeconds"
+    | "plotDescription"
+    | "dialogue"
+    | "narrativeIntent"
+    | "viewerPOV"
+    | "performanceBlocking"
+    | "shotSize"
+    | "emotion"
+    | "lightingAndAtmosphere"
+    | "audioEffects"
+    | "camera"
+    | "motion"
+    | "timeBeats"
+    | "imageGenerationPrompt"
+    | "videoMotionPrompt"
+    | "mustHave"
+    | "optionalDetails"
+    | "continuityOut"
+    | "negativePrompt";
 
 const FIELD_ALIASES: Record<StoryboardField, string[]> = {
     shotNumber: ["镜头", "镜头号", "镜号", "分镜", "序号"],
@@ -31,7 +47,10 @@ const FIELD_ALIASES: Record<StoryboardField, string[]> = {
 };
 
 function normalize(value: string) {
-    return value.trim().toLocaleLowerCase().replace(/[\s\-_：:，,。.!！？?（）()【】\[\]]/g, "");
+    return value
+        .trim()
+        .toLocaleLowerCase()
+        .replace(/[\s\-_：:，,。.!！？?（）()【】\[\]]/g, "");
 }
 
 function cellValue(table: CanvasBatchTableData, row: CanvasBatchRow, field: StoryboardField) {
@@ -53,46 +72,51 @@ function numberValue(value: string, fallback: number, max = 60) {
 }
 
 function arrayValue(value: string) {
-    return value.split(/[\n,，、;；|]/).map((item) => item.trim()).filter(Boolean);
+    return value
+        .split(/[\n,，、;；|]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
 }
 
 /** 把 AI 多维表格行转换成视频脚本节点使用的稳定分镜结构。 */
 export function storyboardRowsFromBatchTable(table: CanvasBatchTableData): StoryboardRow[] {
-    return table.rows.filter((row) => row.enabled !== false).map((row, index) => {
-        const base = table.storyboardRows?.find((item) => item.id === row.id);
-        const get = (field: StoryboardField) => cellValue(table, row, field) ?? String(base?.[field] || "");
-        const plotDescription = get("plotDescription");
-        const motion = get("motion");
-        const videoMotionPrompt = get("videoMotionPrompt") || [plotDescription, motion].filter(Boolean).join("；");
-        const imageGenerationPrompt = get("imageGenerationPrompt") || plotDescription;
-        return createStoryboardRow(index + 1, {
-            ...base,
-            id: row.id,
-            shotNumber: Math.round(numberValue(get("shotNumber"), index + 1, Number.MAX_SAFE_INTEGER)),
-            durationSeconds: numberValue(get("durationSeconds"), 6),
-            plotDescription,
-            dialogue: get("dialogue"),
-            narrativeIntent: get("narrativeIntent"),
-            viewerPOV: get("viewerPOV"),
-            performanceBlocking: get("performanceBlocking"),
-            shotSize: get("shotSize"),
-            emotion: get("emotion"),
-            lightingAndAtmosphere: get("lightingAndAtmosphere"),
-            audioEffects: get("audioEffects"),
-            camera: get("camera"),
-            motion,
-            timeBeats: get("timeBeats"),
-            imageGenerationPrompt,
-            videoMotionPrompt,
-            sourceStartMs: base?.sourceStartMs,
-            sourceEndMs: base?.sourceEndMs,
-            keyframeTimeMs: base?.keyframeTimeMs,
-            mustHave: arrayValue(get("mustHave")),
-            optionalDetails: arrayValue(get("optionalDetails")),
-            continuityOut: get("continuityOut"),
-            negativePrompt: get("negativePrompt"),
+    return table.rows
+        .filter((row) => row.enabled !== false)
+        .map((row, index) => {
+            const base = table.storyboardRows?.find((item) => item.id === row.id);
+            const get = (field: StoryboardField) => cellValue(table, row, field) ?? String(base?.[field] || "");
+            const plotDescription = get("plotDescription");
+            const motion = get("motion");
+            const videoMotionPrompt = get("videoMotionPrompt") || [plotDescription, motion].filter(Boolean).join("；");
+            const imageGenerationPrompt = get("imageGenerationPrompt") || plotDescription;
+            return createStoryboardRow(index + 1, {
+                ...base,
+                id: row.id,
+                shotNumber: Math.round(numberValue(get("shotNumber"), index + 1, Number.MAX_SAFE_INTEGER)),
+                durationSeconds: numberValue(get("durationSeconds"), 6),
+                plotDescription,
+                dialogue: get("dialogue"),
+                narrativeIntent: get("narrativeIntent"),
+                viewerPOV: get("viewerPOV"),
+                performanceBlocking: get("performanceBlocking"),
+                shotSize: get("shotSize"),
+                emotion: get("emotion"),
+                lightingAndAtmosphere: get("lightingAndAtmosphere"),
+                audioEffects: get("audioEffects"),
+                camera: get("camera"),
+                motion,
+                timeBeats: get("timeBeats"),
+                imageGenerationPrompt,
+                videoMotionPrompt,
+                sourceStartMs: base?.sourceStartMs,
+                sourceEndMs: base?.sourceEndMs,
+                keyframeTimeMs: base?.keyframeTimeMs,
+                mustHave: arrayValue(get("mustHave")),
+                optionalDetails: arrayValue(get("optionalDetails")),
+                continuityOut: get("continuityOut"),
+                negativePrompt: get("negativePrompt"),
+            });
         });
-    });
 }
 
 export function storyboardKeyframeTime(row: StoryboardRow) {

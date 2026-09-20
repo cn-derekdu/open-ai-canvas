@@ -82,19 +82,13 @@ function chineseNumber(value: string) {
 }
 
 export function parseListModeJson(text: string): ListGenerationResult | null {
-    const candidates = [
-        text.trim(),
-        ...Array.from(text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi), (match) => match[1].trim()),
-        ...balancedJsonObjects(text),
-    ];
+    const candidates = [text.trim(), ...Array.from(text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi), (match) => match[1].trim()), ...balancedJsonObjects(text)];
     for (const candidate of candidates) {
         try {
             const parsed = JSON.parse(candidate) as { columns?: unknown; rows?: unknown };
             const columns = normalizeListColumns(parsed.columns);
             if (!columns.length || !Array.isArray(parsed.rows) || !parsed.rows.length) continue;
-            const rows = parsed.rows
-                .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row))
-                .map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, listCellText(value)])));
+            const rows = parsed.rows.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row)).map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [key, listCellText(value)])));
             if (rows.length) return { columns, rows };
         } catch {
             // Try the next candidate. Models often wrap valid JSON in prose or a code block.
@@ -104,42 +98,40 @@ export function parseListModeJson(text: string): ListGenerationResult | null {
 }
 
 export function parseStoryboardJson(text: string): { title?: string; rows: StoryboardRow[] } | null {
-    const candidates = [
-        text.trim(),
-        ...Array.from(text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi), (match) => match[1].trim()),
-        ...balancedJsonObjects(text),
-    ];
+    const candidates = [text.trim(), ...Array.from(text.matchAll(/```(?:json)?\s*([\s\S]*?)\s*```/gi), (match) => match[1].trim()), ...balancedJsonObjects(text)];
     for (const candidate of candidates) {
         try {
             const parsed = JSON.parse(candidate) as { title?: unknown; rows?: unknown };
             if (!Array.isArray(parsed.rows) || !parsed.rows.length) continue;
             const rows = parsed.rows
                 .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row))
-                .map((row, index) => createStoryboardRow(index + 1, {
-                    shotNumber: Number(row.shotNumber) || index + 1,
-                    durationSeconds: Math.max(1, Math.min(60, Number(row.durationSeconds) || 6)),
-                    sourceStartMs: sourceTimeMs(row.sourceStartSeconds),
-                    sourceEndMs: sourceTimeMs(row.sourceEndSeconds),
-                    keyframeTimeMs: sourceTimeMs(row.keyframeTimeSeconds),
-                    plotDescription: listCellText(row.plotDescription),
-                    dialogue: listCellText(row.dialogue),
-                    narrativeIntent: listCellText(row.narrativeIntent),
-                    viewerPOV: listCellText(row.viewerPOV),
-                    performanceBlocking: listCellText(row.performanceBlocking),
-                    shotSize: listCellText(row.shotSize),
-                    emotion: listCellText(row.emotion),
-                    lightingAndAtmosphere: listCellText(row.lightingAndAtmosphere),
-                    audioEffects: listCellText(row.audioEffects),
-                    camera: listCellText(row.camera),
-                    motion: listCellText(row.motion),
-                    timeBeats: listCellText(row.timeBeats),
-                    imageGenerationPrompt: listCellText(row.imageGenerationPrompt) || listCellText(row.plotDescription),
-                    videoMotionPrompt: listCellText(row.videoMotionPrompt) || [listCellText(row.plotDescription), listCellText(row.motion)].filter(Boolean).join("；"),
-                    mustHave: Array.isArray(row.mustHave) ? row.mustHave.map(listCellText).filter(Boolean) : [],
-                    optionalDetails: Array.isArray(row.optionalDetails) ? row.optionalDetails.map(listCellText).filter(Boolean) : [],
-                    continuityOut: listCellText(row.continuityOut),
-                    negativePrompt: listCellText(row.negativePrompt),
-                }));
+                .map((row, index) =>
+                    createStoryboardRow(index + 1, {
+                        shotNumber: Number(row.shotNumber) || index + 1,
+                        durationSeconds: Math.max(1, Math.min(60, Number(row.durationSeconds) || 6)),
+                        sourceStartMs: sourceTimeMs(row.sourceStartSeconds),
+                        sourceEndMs: sourceTimeMs(row.sourceEndSeconds),
+                        keyframeTimeMs: sourceTimeMs(row.keyframeTimeSeconds),
+                        plotDescription: listCellText(row.plotDescription),
+                        dialogue: listCellText(row.dialogue),
+                        narrativeIntent: listCellText(row.narrativeIntent),
+                        viewerPOV: listCellText(row.viewerPOV),
+                        performanceBlocking: listCellText(row.performanceBlocking),
+                        shotSize: listCellText(row.shotSize),
+                        emotion: listCellText(row.emotion),
+                        lightingAndAtmosphere: listCellText(row.lightingAndAtmosphere),
+                        audioEffects: listCellText(row.audioEffects),
+                        camera: listCellText(row.camera),
+                        motion: listCellText(row.motion),
+                        timeBeats: listCellText(row.timeBeats),
+                        imageGenerationPrompt: listCellText(row.imageGenerationPrompt) || listCellText(row.plotDescription),
+                        videoMotionPrompt: listCellText(row.videoMotionPrompt) || [listCellText(row.plotDescription), listCellText(row.motion)].filter(Boolean).join("；"),
+                        mustHave: Array.isArray(row.mustHave) ? row.mustHave.map(listCellText).filter(Boolean) : [],
+                        optionalDetails: Array.isArray(row.optionalDetails) ? row.optionalDetails.map(listCellText).filter(Boolean) : [],
+                        continuityOut: listCellText(row.continuityOut),
+                        negativePrompt: listCellText(row.negativePrompt),
+                    }),
+                );
             if (rows.length) return { title: typeof parsed.title === "string" ? parsed.title : undefined, rows };
         } catch {
             // Continue with the next JSON candidate.
@@ -194,8 +186,28 @@ function storyboardColumnLabel(column: StoryboardColumn) {
 
 function storyboardCells(row: StoryboardRow) {
     const values: Record<string, string> = {};
-    const fields: Array<keyof StoryboardRow> = ["durationSeconds", "plotDescription", "dialogue", "narrativeIntent", "viewerPOV", "performanceBlocking", "shotSize", "emotion", "lightingAndAtmosphere", "audioEffects", "camera", "motion", "timeBeats", "imageGenerationPrompt", "videoMotionPrompt", "continuityOut", "negativePrompt"];
-    fields.forEach((field) => { values[`storyboard-${field}`] = String(row[field] || ""); });
+    const fields: Array<keyof StoryboardRow> = [
+        "durationSeconds",
+        "plotDescription",
+        "dialogue",
+        "narrativeIntent",
+        "viewerPOV",
+        "performanceBlocking",
+        "shotSize",
+        "emotion",
+        "lightingAndAtmosphere",
+        "audioEffects",
+        "camera",
+        "motion",
+        "timeBeats",
+        "imageGenerationPrompt",
+        "videoMotionPrompt",
+        "continuityOut",
+        "negativePrompt",
+    ];
+    fields.forEach((field) => {
+        values[`storyboard-${field}`] = String(row[field] || "");
+    });
     values[`storyboard-mustHave`] = row.mustHave.join("、");
     values[`storyboard-optionalDetails`] = row.optionalDetails.join("、");
     return values;
@@ -253,7 +265,10 @@ function listCellText(value: unknown): string {
 }
 
 function normalizedCellKey(value: string) {
-    return value.trim().toLocaleLowerCase().replace(/[\s\-_：:，,。.!！？?（）()【】\[\]]/g, "");
+    return value
+        .trim()
+        .toLocaleLowerCase()
+        .replace(/[\s\-_：:，,。.!！？?（）()【】\[\]]/g, "");
 }
 
 function rowCellValue(row: Record<string, string>, columnName: string, columnIndex: number) {
@@ -297,26 +312,13 @@ type HandleListGenerateOptions = {
     setDialogNodeId: (id: string | null) => void;
 };
 
-export async function handleListGenerate({
-    sourceNodeId,
-    prompt,
-    nodes,
-    connections,
-    config,
-    projectId,
-    setNodes,
-    setConnections,
-    setRunningNodeId,
-    setDialogNodeId,
-}: HandleListGenerateOptions) {
+export async function handleListGenerate({ sourceNodeId, prompt, nodes, connections, config, projectId, setNodes, setConnections, setRunningNodeId, setDialogNodeId }: HandleListGenerateOptions) {
     const sourceNode = nodes.find((n) => n.id === sourceNodeId);
     if (!sourceNode) return;
 
     // Find connected media nodes. 视频列表模式不再强制要求图片；可使用连接的视频节点，
     // 或从提示词中识别出直接粘贴的视频地址。
-    const connectedImageIds = connections
-        .filter((c) => c.toNodeId === sourceNodeId && c.fromNodeId !== sourceNodeId)
-        .map((c) => c.fromNodeId);
+    const connectedImageIds = connections.filter((c) => c.toNodeId === sourceNodeId && c.fromNodeId !== sourceNodeId).map((c) => c.fromNodeId);
     const imageNodes = nodes.filter((n) => connectedImageIds.includes(n.id) && n.type === CanvasNodeType.Image && Boolean(n.metadata?.content || n.metadata?.storageKey));
     const videoNodes = nodes.filter((n) => connectedImageIds.includes(n.id) && n.type === CanvasNodeType.Video && Boolean(n.metadata?.content || n.metadata?.storageKey));
     const promptVideoUrls = videoNodes.length ? [] : videoUrlsFromPrompt(prompt);
@@ -460,10 +462,12 @@ export async function handleListGenerate({
                 cells[`ai-col-${colIndex}`] = rowCellValue(row, colName, colIndex);
             });
             // Build prompt from all text cells
-            const cellPrompts = parsed.columns.map((colName, colIndex) => {
-                const val = cells[`ai-col-${colIndex}`];
-                return val ? `${colName}：${val}` : "";
-            }).filter(Boolean);
+            const cellPrompts = parsed.columns
+                .map((colName, colIndex) => {
+                    const val = cells[`ai-col-${colIndex}`];
+                    return val ? `${colName}：${val}` : "";
+                })
+                .filter(Boolean);
 
             return {
                 id: `batch-row-${nanoid()}`,
