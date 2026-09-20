@@ -5,17 +5,15 @@ import { CanvasNodeType, type CanvasBatchTableData } from "@/types/canvas";
 
 test("storyboard conversion follows row identity and retains edits and asset bindings", () => {
     const table: CanvasBatchTableData = {
-        operation: "creative", concurrency: 1,
+        operation: "creative",
+        concurrency: 1,
         textColumns: [{ id: "unrelated", label: "无关列" }],
         rows: [
             { id: "second", enabled: true, prompt: "", inputNodeIds: [], cells: { "storyboard-shotNumber": "72", "storyboard-durationSeconds": "2.5", "storyboard-dialogue": "" } },
             { id: "new", enabled: true, prompt: "", inputNodeIds: [], cells: { unrelated: "不要猜成画面" } },
             { id: "first", enabled: false, prompt: "", inputNodeIds: [] },
         ],
-        storyboardRows: [
-            createStoryboardRow(1, { id: "first", plotDescription: "deleted" }),
-            createStoryboardRow(2, { id: "second", plotDescription: "second shot", dialogue: "old", keyframeTimeMs: 2000, imageNodeId: "existing-image" }),
-        ],
+        storyboardRows: [createStoryboardRow(1, { id: "first", plotDescription: "deleted" }), createStoryboardRow(2, { id: "second", plotDescription: "second shot", dialogue: "old", keyframeTimeMs: 2000, imageNodeId: "existing-image" })],
     };
     const rows = storyboardRowsFromBatchTable(table);
     expect(rows).toHaveLength(2);
