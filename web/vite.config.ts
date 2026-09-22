@@ -2,14 +2,17 @@ import { dirname, resolve } from "node:path";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 const appVersion = process.env.CANVAS_BUILD_VERSION?.trim() || readFileSync(resolve(webDir, "../VERSION"), "utf8").trim();
 const buildCommit = process.env.CANVAS_BUILD_COMMIT?.trim() || process.env.VITE_BUILD_COMMIT?.trim() || "unknown";
 const buildTime = process.env.CANVAS_BUILD_TIME?.trim() || process.env.VITE_BUILD_TIME?.trim() || "unknown";
 const appChangelog = readFileSync(resolve(webDir, "../CHANGELOG.md"), "utf8");
-const apiProxyTarget = process.env.VITE_API_PROXY_TARGET?.trim() || "http://127.0.0.1:8080";
+// 本地开发代理目标：优先真实环境变量，其次 web/.env.local 等 .env 文件。
+// Vite 解析配置文件时尚未加载 .env，必须用 loadEnv 显式读取，否则 process.env 里取不到。
+const fileEnv = loadEnv("development", webDir, "VITE_");
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET?.trim() || fileEnv.VITE_API_PROXY_TARGET?.trim() || "http://127.0.0.1:8080";
 
 export default defineConfig({
     plugins: [react()],
