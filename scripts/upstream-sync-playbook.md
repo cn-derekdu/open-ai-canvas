@@ -170,6 +170,14 @@ fs.renameSync(cacheDir, cacheDir + "-stale-" + Date.now());
 
 **`npm install` 的副作用**：会额外生成 `web/package-lock.json`。本项目锁文件是 `bun.lock`（线上 Docker 构建同样走 bun），安装完应删除该文件，避免误提交出第二个锁文件。
 
+**重启本地 vite 必须带 `VITE_API_PROXY_TARGET`**：`web/vite.config.ts` 用 `process.env` 读取代理目标，**兜底默认值是 `http://127.0.0.1:8080`**，而本地后端监听 `18080`：
+
+```bash
+cd web && VITE_API_PROXY_TARGET=http://127.0.0.1:18080 npm run dev
+```
+
+**不要指望写进 `web/.env.local` 能生效**——Vite 在解析配置文件时尚未加载 `.env` 文件，`process.env` 里读不到（要读必须改用 `loadEnv` API，那属于改上游文件）。漏掉这个变量的表现是：前端所有 `/api` 请求返回 **502**，界面提示「后端服务暂时不可用，请稍后重试」——**此时后端其实是正常的，不要去查后端**。用 `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/health/ready` 可一键区分：502 是代理问题，200 才是后端可用。
+
 ## 10. 硬约束
 
 - 不提交 `.env`、密钥、数据库、日志、本机配置
