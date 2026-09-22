@@ -219,18 +219,27 @@ export function useCanvasMediaTools({
 
     const cropImageNode = useCallback(async (node: CanvasNodeData, crop: CanvasImageCropRect) => {
         if (!node.metadata?.content) return;
-        const cropped = await cropDataUrl(node.metadata.content, crop);
-        const image = await uploadImage(cropped);
-        const size = fitNodeSize(image.width, image.height, node.width, node.height);
-        const childId = nanoid();
-        const child: CanvasNodeData = { id: childId, type: CanvasNodeType.Image, title: `${node.title || "图片"} · 裁剪`, position: { x: node.position.x + node.width + 96, y: node.position.y }, width: size.width, height: size.height, metadata: { ...imageMetadata(image), prompt: node.metadata?.prompt } };
-        setNodes((current) => [...current, child]);
-        setConnections((current) => [...current, { id: nanoid(), fromNodeId: node.id, toNodeId: childId }]);
-        setSelectedNodeIds(new Set([childId]));
-        setDialogNodeId(childId);
-        setCropNodeId(null);
-        await persistMediaNodes([child]);
-    }, [persistMediaNodes, setConnections, setDialogNodeId, setNodes, setSelectedNodeIds]);
+        // 云端图片地址通常不带 CORS 头，直接画到 canvas 会被判定为跨域而无法导出。
+        // 优先用本地缓存里的 Blob 构造同源地址，裁剪才能读取像素。
+        const source = await resolveCroppableImageSource(node);
+        try {
+            const cropped = await cropDataUrl(source.url, crop);
+            const image = await uploadImage(cropped);
+            const size = fitNodeSize(image.width, image.height, node.width, node.height);
+            const childId = nanoid();
+            const child: CanvasNodeData = { id: childId, type: CanvasNodeType.Image, title: `${node.title || "图片"} · 裁剪`, position: { x: node.position.x + node.width + 96, y: node.position.y }, width: size.width, height: size.height, metadata: { ...imageMetadata(image), prompt: node.metadata?.prompt } };
+            setNodes((current) => [...current, child]);
+            setConnections((current) => [...current, { id: nanoid(), fromNodeId: node.id, toNodeId: childId }]);
+            setSelectedNodeIds(new Set([childId]));
+            setDialogNodeId(childId);
+            setCropNodeId(null);
+            await persistMediaNodes([child]);
+        } catch (error) {
+            message.error(error instanceof Error ? `裁剪失败：${error.message}` : "裁剪失败，请重试");
+        } finally {
+            source.release();
+        }
+    }, [message, persistMediaNodes, setConnections, setDialogNodeId, setNodes, setSelectedNodeIds]);
 
     const saveAnnotatedImageNode = useCallback(async (node: CanvasNodeData, dataUrl: string) => {
         const image = await uploadImage(dataUrl);
@@ -1279,4 +1288,18 @@ export function useCanvasMediaTools({
         upscaleImageNode,
         upscaleNodeId,
     };
+}
+
+// 裁剪、切分等像素级操作要求图片同源可读：云端地址若不带 CORS 头，
+// canvas 会被标记为跨域，toDataURL 直接抛 SecurityError。
+// 这里优先用本地缓存 Blob 构造同源 objectURL，取不到时再回退原始地址。
+async function resolveCroppableImageSource(node: CanvasNodeData): Promise<{ url: string; release: () => void }> {
+    const content = node.metadata?.content ?? "";
+    if (content.startsWith("data:") || content.startsWith("blob:")) return { url: content, release: () => {} };
+    const storageKey = node.metadata?.storageKey;
+    if (!storageKey) return { url: content, release: () => {} };
+    const blob = await getMediaBlob(storageKey).catch(() => null);
+    if (!blob) return { url: content, release: () => {} };
+    const url = URL.createObjectURL(blob);
+    return { url, release: () => URL.revokeObjectURL(url) };
 }

@@ -159,9 +159,14 @@ function drawResizeCanvas(source: CanvasImageSource, sourceWidth: number, source
 }
 
 function loadImage(dataUrl: string) {
-    return new Promise<HTMLImageElement>((resolve) => {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
         const image = new Image();
+        // 只有远程地址才需要声明匿名跨域：cdn 未返回 CORS 头时它会直接加载失败，
+        // 而 data:/blob: 属于本地资源，设了反而可能取不到。
+        if (!dataUrl.startsWith("data:") && !dataUrl.startsWith("blob:")) image.crossOrigin = "anonymous";
         image.onload = () => resolve(image);
+        // 缺少 onerror 时加载失败会让 Promise 永久挂起，调用方 await 后表现为「点击无反应」。
+        image.onerror = () => reject(new Error("图片加载失败，无法处理该图片"));
         image.src = dataUrl;
     });
 }
