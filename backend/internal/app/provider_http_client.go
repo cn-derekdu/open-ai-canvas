@@ -213,6 +213,45 @@ func doJSON(req *http.Request, target interface{}) error {
 	return nil
 }
 
+// providerOutboundTimeout 决定单次出站请求的超时上限。
+//
+// 结果下载必须有独立上限：下载卡死时如果沿用「任务剩余预算」，单次请求会一直挂到任务
+// deadline —— 既没有重试窗口，失败还会被归因成「生成超时」（此时上游其实已生成成功）。
+// 除下载外的请求保持既有语义：以任务剩余预算为准，长流式生成依赖它不被固定上限截断。
+func providerOutboundTimeout(ctx context.Context) time.Duration {
+	deadline, hasDeadline := ctx.Deadline()
+	remaining := time.Duration(0)
+	if hasDeadline {
+		remaining = time.Until(deadline)
+	}
+	if isProviderDownloadKind(providerRequestKindFromContext(ctx)) {
+		// 只收敛不放大：剩余时间更紧时用剩余时间，绝不因为任务预算充裕而放宽下载上限。
+		if hasDeadline && remaining > 0 && remaining < providerDownloadTimeout {
+			return remaining
+		}
+		return providerDownloadTimeout
+	}
+	if hasDeadline && remaining > 0 {
+		return remaining
+	}
+	return providerHTTPTimeout
+}
+
+func providerRequestKindFromContext(ctx context.Context) string {
+	metadata, ok := ctx.Value(providerAnalyticsKey{}).(providerAnalyticsContext)
+	if !ok {
+		return ""
+	}
+	return metadata.RequestKind
+}
+
+// isProviderDownloadKind 判定一次出站请求（或任务已推进到的阶段）是否属于上游结果下载。
+// 下载类请求统一由 withProviderRequestKind(ctx, "download") 标记，任务侧把最后一次
+// 请求类型写入 tasks.poll_stage，两边共用同一判定，避免出现第二套语义。
+func isProviderDownloadKind(kind string) bool {
+	return strings.EqualFold(strings.TrimSpace(kind), "download")
+}
+
 func doBinary(req *http.Request) ([]byte, string, error) {
 	return doBinaryWithConsumer(req, nil)
 }
@@ -222,12 +261,7 @@ func doBinary(req *http.Request) ([]byte, string, error) {
 // 不会绕过完整响应的大小上限或错误判定。
 func doBinaryWithConsumer(req *http.Request, onChunk func(string, []byte)) ([]byte, string, error) {
 	startedAt := time.Now()
-	requestTimeout := providerHTTPTimeout
-	if deadline, ok := req.Context().Deadline(); ok {
-		if remaining := time.Until(deadline); remaining > 0 {
-			requestTimeout = remaining
-		}
-	}
+	requestTimeout := providerOutboundTimeout(req.Context())
 	var release func()
 	var coordinator *platform.Coordinator
 	var runtimeService *Service

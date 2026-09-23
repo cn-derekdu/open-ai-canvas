@@ -273,7 +273,7 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 			if cloudAgentModelOperation(task) {
 				err = errors.New(cloudAgentStepTimeoutError + "，已中止这一步")
 			} else {
-				err = errors.New(taskTimeoutMessage(task.Type))
+				err = errors.New(taskTimeoutMessage(task.Type, task.PollStage))
 			}
 		}
 		s.noteAgentMemoryCompactTask(*task, nil, err)
@@ -396,7 +396,22 @@ func newAPIChannel2TaskSyncExpired(task model.Task, err error, now time.Time) bo
 	return !now.Before(task.StartedAt.Add(newAPIChannel2TaskSyncMaxAge))
 }
 
-func taskTimeoutMessage(taskType string) string {
+// taskTimeoutMessage 生成超时提示语。
+//
+// 必须结合 poll_stage：任务已经推进到 download 阶段，说明上游生成成功、结果地址也拿到了，
+// 此时超时是「结果下载超时」。报成「生成等待超时」会把排查方向引向"上游慢"，与事实相反
+// （实测生成只用了 37 秒，结果下载挂了 442 秒才被任务预算掐断）。
+func taskTimeoutMessage(taskType string, pollStage string) string {
+	if isProviderDownloadKind(pollStage) {
+		switch {
+		case strings.HasPrefix(taskType, "canvas_video") || strings.HasPrefix(taskType, "video_"):
+			return "视频已生成，但结果下载超时，请稍后到任务中心查看或重试。"
+		case strings.HasPrefix(taskType, "canvas_image"):
+			return "图片已生成，但结果下载超时，请稍后重试。"
+		default:
+			return "上游结果下载超时，请稍后重试。"
+		}
+	}
 	if strings.HasPrefix(taskType, "canvas_video") || strings.HasPrefix(taskType, "video_") {
 		return "视频生成等待超时，请稍后到任务中心查看或重试。"
 	}

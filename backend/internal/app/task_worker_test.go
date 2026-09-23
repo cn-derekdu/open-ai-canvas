@@ -10,6 +10,32 @@ import (
 	"infinite-canvas/backend/internal/repository"
 )
 
+// 已进入 download 阶段说明上游生成成功、结果地址都拿到了，此时超时是「结果下载超时」。
+// 报成「生成等待超时」会把排查方向引向"上游慢"，与事实相反。
+func TestTaskTimeoutMessageDistinguishesResultDownloadStage(t *testing.T) {
+	cases := []struct {
+		taskType  string
+		pollStage string
+		want      string
+	}{
+		{"canvas_image", "download", "图片已生成，但结果下载超时，请稍后重试。"},
+		{"canvas_video", "download", "视频已生成，但结果下载超时，请稍后到任务中心查看或重试。"},
+		{"video_kling", "download", "视频已生成，但结果下载超时，请稍后到任务中心查看或重试。"},
+		{"canvas_audio", "download", "上游结果下载超时，请稍后重试。"},
+		{"canvas_image", "", "图片生成等待超时，请稍后重试。"},
+		{"canvas_image", "create", "图片生成等待超时，请稍后重试。"},
+		{"canvas_image", "accepted", "图片生成等待超时，请稍后重试。"},
+		{"canvas_image", "poll", "图片生成等待超时，请稍后重试。"},
+		{"canvas_video", "poll", "视频生成等待超时，请稍后到任务中心查看或重试。"},
+		{"canvas_text", "", "任务执行超时，请稍后重试。"},
+	}
+	for _, item := range cases {
+		if got := taskTimeoutMessage(item.taskType, item.pollStage); got != item.want {
+			t.Fatalf("taskTimeoutMessage(%q, %q) = %q, want %q", item.taskType, item.pollStage, got, item.want)
+		}
+	}
+}
+
 // 续租必须比"这条任务的执行时限"活得更久：否则父 context 到点时，续租请求会被自己的
 // 执行时限取消，失败后被误判成"租约失效"（任务停在 running，租约过期后被别的 worker 重跑）。
 func TestTaskLeaseRenewContextSurvivesExecutionDeadline(t *testing.T) {
