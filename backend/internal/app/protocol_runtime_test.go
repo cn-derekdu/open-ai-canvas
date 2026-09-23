@@ -50,6 +50,13 @@ func TestPluginViewIncludesDocumentationForEveryOfficialProtocol(t *testing.T) {
 			bundledCount++
 		}
 	}
+	// 短信插件（阿里云/腾讯云）同样是宿主内置贡献，且没有独立 .yingce-plugin 产物，
+	// 必须一起计入期望值：加载器新增一类内置插件而不更新这里，断言就会失真。
+	for _, manifest := range bundledSMSPluginManifests() {
+		if !packageIDs[manifest.Metadata.ID] {
+			bundledCount++
+		}
+	}
 	if len(plugins) != len(packages)+bundledCount {
 		t.Fatalf("plugin views = %d, official packages plus bundled plugins = %d", len(plugins), len(packages)+bundledCount)
 	}
