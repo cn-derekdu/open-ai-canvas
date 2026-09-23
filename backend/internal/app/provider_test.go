@@ -73,6 +73,44 @@ func TestProviderMediaHydrationPolicyPrefersObjectURLs(t *testing.T) {
 	}
 }
 
+// 结果下载必须有自己的超时上限：下载卡死时若沿用「任务剩余预算」，单次请求会一直挂到
+// 任务 deadline，重试没有窗口，失败还会被归因成「生成超时」。
+func TestProviderOutboundTimeoutBoundsResultDownload(t *testing.T) {
+	asDownload := func(ctx context.Context) context.Context {
+		metadata, _ := ctx.Value(providerAnalyticsKey{}).(providerAnalyticsContext)
+		metadata.RequestKind = "download"
+		return context.WithValue(ctx, providerAnalyticsKey{}, metadata)
+	}
+
+	if got := providerOutboundTimeout(asDownload(context.Background())); got != providerDownloadTimeout {
+		t.Fatalf("无 deadline 的下载超时 = %s, want %s", got, providerDownloadTimeout)
+	}
+
+	// 任务预算比下载上限宽裕时，绝不能被剩余预算放大（这正是原缺陷：442s 预算 → 442s 单次下载）。
+	spacious, cancelSpacious := context.WithTimeout(context.Background(), time.Hour)
+	defer cancelSpacious()
+	if got := providerOutboundTimeout(asDownload(spacious)); got != providerDownloadTimeout {
+		t.Fatalf("宽裕预算下的下载超时 = %s, want %s（不得被放大）", got, providerDownloadTimeout)
+	}
+
+	// 剩余预算更紧时只收敛。
+	tight, cancelTight := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelTight()
+	if got := providerOutboundTimeout(asDownload(tight)); got <= 0 || got > 30*time.Second {
+		t.Fatalf("剩余 30s 时的下载超时 = %s, want (0, 30s]", got)
+	}
+
+	// 非下载请求保持既有语义：以任务剩余预算为准，长流式生成依赖它不被固定上限截断。
+	budget, cancelBudget := context.WithTimeout(context.Background(), 8*time.Minute)
+	defer cancelBudget()
+	if got := providerOutboundTimeout(budget); got < 7*time.Minute || got > 8*time.Minute {
+		t.Fatalf("非下载请求超时 = %s, want ~8m（任务剩余预算）", got)
+	}
+	if got := providerOutboundTimeout(context.Background()); got != providerHTTPTimeout {
+		t.Fatalf("无 deadline 的非下载请求超时 = %s, want %s", got, providerHTTPTimeout)
+	}
+}
+
 func TestProviderRequestErrorDetails(t *testing.T) {
 	tests := []struct {
 		name string

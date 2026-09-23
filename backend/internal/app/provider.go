@@ -107,6 +107,14 @@ const providerHTTPTimeout = 5 * time.Minute
 const videoPollTimeout = time.Hour
 const maxProviderResponseBytes int64 = 64 << 20
 
+// providerDownloadTimeout 是上游结果下载单次尝试的独立超时上限。
+//
+// 下载是纯字节搬运，绝不能沿用「任务剩余预算」：一旦 CDN 卡死，单次请求会一直挂到任务
+// deadline，既吃掉了全部重试窗口，又让失败被归因成「生成超时」——而此时上游其实已经生成
+// 成功（任务已进入 download 阶段）。90s 与项目内其他远程资源下载（resource.go 的
+// downloadRemoteResource）保持一致。
+const providerDownloadTimeout = 90 * time.Second
+
 type providerMedia struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`

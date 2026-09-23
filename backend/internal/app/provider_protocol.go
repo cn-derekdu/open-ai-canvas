@@ -898,7 +898,7 @@ func protocolMediaBytes(ctx context.Context, config providerConfig, reference pr
 		if err == nil {
 			return data, mimeType, nil
 		}
-		if attempt == 2 || !retryableProtocolMediaDownload(err) {
+		if attempt == 2 || !retryableProtocolMediaDownload(ctx, err) {
 			break
 		}
 		if waitErr := sleepContext(ctx, time.Duration(attempt+1)*time.Second); waitErr != nil {
@@ -921,9 +921,17 @@ func protocolMediaBytesOnce(ctx context.Context, config providerConfig, referenc
 	return data, normalizedMediaMimeType(mimeType, data), err
 }
 
-func retryableProtocolMediaDownload(err error) bool {
-	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+// retryableProtocolMediaDownload 判断单次媒体结果下载失败是否值得再换一次尝试。
+//
+// 必须先看任务 context：任务级取消/超时说明时间已经不属于本次任务，重试没有意义；
+// 而任务 context 仍然有效时收到 deadline exceeded，命中的是 providerDownloadTimeout
+// 这类单次请求上限 —— 那恰好是最该重试的情况（与 retryableVideoPollError 同一判定顺序）。
+func retryableProtocolMediaDownload(ctx context.Context, err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || ctx.Err() != nil {
 		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
 	}
 	var networkError net.Error
 	if errors.As(err, &networkError) && (networkError.Timeout() || networkError.Temporary()) {
