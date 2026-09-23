@@ -114,7 +114,11 @@ function CanvasNodeListThumbnail({ node }: { node: CanvasNodeData }) {
     const commonStyle = { borderColor: "color-mix(in srgb, var(--foreground) 9%, transparent)", background: "color-mix(in srgb, var(--foreground) 5%, transparent)" };
 
     if (node.type === CanvasNodeType.Video) {
-        const fallback = <span aria-hidden="true" className="grid h-9 w-11 place-items-center rounded-[var(--r-sm)] border text-foreground/48" style={commonStyle}><CanvasVideoIcon className="size-3.5" /></span>;
+        const fallback = (
+            <span aria-hidden="true" className="grid h-9 w-11 place-items-center rounded-[var(--r-sm)] border text-foreground/48" style={commonStyle}>
+                <CanvasVideoIcon className="size-3.5" />
+            </span>
+        );
         return <CanvasVideoPreviewImage node={node} alt="" width={44} height={36} loading="lazy" decoding="async" className={commonClass} style={commonStyle} fallback={fallback} />;
     }
 

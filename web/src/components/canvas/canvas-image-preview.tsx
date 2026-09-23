@@ -21,9 +21,10 @@ export function CanvasImagePreview({ src = "", storageKey, alt = "图片", onClo
         setResolvedSrc(storageKey ? "" : src);
         setLoading(Boolean(src || storageKey));
         setError(false);
-        if (!src && !storageKey) return () => {
-            cancelled = true;
-        };
+        if (!src && !storageKey)
+            return () => {
+                cancelled = true;
+            };
         void resolveImageUrl(storageKey, src)
             .then((url) => {
                 if (cancelled) return;
@@ -63,7 +64,9 @@ export function CanvasImagePreview({ src = "", storageKey, alt = "图片", onClo
                     >
                         <ImageIcon className="size-4" />
                     </span>
-                    <span className="min-w-0 truncate text-sm font-semibold" title={alt}>{alt}</span>
+                    <span className="min-w-0 truncate text-sm font-semibold" title={alt}>
+                        {alt}
+                    </span>
                 </div>
             }
             footer={null}

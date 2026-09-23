@@ -12,3 +12,6 @@ bun.lock
 *.gif
 *.webp
 *.svg
+
+# 第三方压缩产物（Live2D Cubism Core 等），格式化会破坏或膨胀文件
+*.min.js

@@ -1,9 +1,4 @@
-import {
-    getResourceAccess,
-    resolveResourceAccessURL,
-    resourceIdFromStorageKey,
-    type ResourceAccessVariant,
-} from "@/services/api/resources";
+import { getResourceAccess, resolveResourceAccessURL, resourceIdFromStorageKey, type ResourceAccessVariant } from "@/services/api/resources";
 
 export type BrowserMediaDownload = {
     fileName: string;
@@ -23,9 +18,7 @@ export type BrowserMediaDownload = {
 export async function downloadBrowserMedia({ fileName, storageKey, url, variant = "original" }: BrowserMediaDownload) {
     const normalizedStorageKey = storageKey?.trim();
     const normalizedUrl = url?.trim();
-    const href = normalizedStorageKey && resourceIdFromStorageKey(normalizedStorageKey)
-        ? resolveResourceAccessURL((await getResourceAccess(normalizedStorageKey, "download", variant, fileName)).url)
-        : normalizedUrl;
+    const href = normalizedStorageKey && resourceIdFromStorageKey(normalizedStorageKey) ? resolveResourceAccessURL((await getResourceAccess(normalizedStorageKey, "download", variant, fileName)).url) : normalizedUrl;
     if (!href) throw new Error("媒体资源不存在");
 
     const anchor = document.createElement("a");

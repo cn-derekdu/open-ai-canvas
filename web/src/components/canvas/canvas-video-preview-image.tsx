@@ -19,14 +19,5 @@ type CanvasVideoPreviewImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "s
 export function CanvasVideoPreviewImage({ node, fallback = null, loadingFallback = fallback, eager = false, ...props }: CanvasVideoPreviewImageProps) {
     const preview = canvasNodeVideoPreviewReference(node);
     if (!preview) return <>{fallback}</>;
-    return (
-        <CachedResourceImage
-            {...props}
-            storageKey={preview.storageKey}
-            src={preview.src}
-            fallback={fallback}
-            loadingFallback={loadingFallback}
-            eager={eager}
-        />
-    );
+    return <CachedResourceImage {...props} storageKey={preview.storageKey} src={preview.src} fallback={fallback} loadingFallback={loadingFallback} eager={eager} />;
 }
