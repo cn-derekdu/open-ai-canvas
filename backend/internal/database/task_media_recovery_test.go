@@ -18,8 +18,22 @@ func TestTaskMediaRecoveryMigrationPreservesHistoricalTasks(t *testing.T) {
 	if err := db.Exec(`INSERT INTO tasks VALUES ('old-task', 'failed', 'download failed')`).Error; err != nil {
 		t.Fatal(err)
 	}
+	// 本地二开在 v16 插入了独有迁移，编号相对上游永久偏移 +1，所以这里不能按下标取：
+	// 上游 schemaMigrations[33] 是 task_media_recovery，本地同一下标落到
+	// oauth_state_accepted_terms，会去改测试库里并不存在的 o_auth_states。
+	// 按名称查找，避免每次上游新增迁移都要回来改这个下标。
+	var recovery migration
+	for _, item := range schemaMigrations {
+		if item.name == "task_media_recovery" {
+			recovery = item
+			break
+		}
+	}
+	if recovery.apply == nil {
+		t.Fatal("未找到 task_media_recovery 迁移")
+	}
 	for i := 0; i < 2; i++ {
-		if err := schemaMigrations[33].apply(db); err != nil {
+		if err := recovery.apply(db); err != nil {
 			t.Fatal(err)
 		}
 	}
