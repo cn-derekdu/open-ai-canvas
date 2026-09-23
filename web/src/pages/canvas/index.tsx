@@ -30,6 +30,7 @@ import { primeResourceBlobCache } from "@/services/resource-blob-cache";
 import { useSyncProgressStore } from "@/stores/use-sync-progress-store";
 import { ensureCanvasNodeAsset } from "@/services/project-asset-sync";
 import { CanvasSyncDraftMenu } from "./canvas-sync-status";
+import { CanvasImportProgress, type CanvasImportRun } from "./canvas-import-progress";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
 
 const CanvasDeleteProjectsDialog = lazy(() => import("@/components/canvas/canvas-delete-projects-dialog").then((module) => ({ default: module.CanvasDeleteProjectsDialog })));
@@ -48,6 +49,9 @@ export default function CanvasPage() {
     const [loadedProjectCount, setLoadedProjectCount] = useState(50);
     const [openingProjectId, setOpeningProjectId] = useState("");
     const openingProjectIdRef = useRef("");
+    // 导入进度：projectId 为空表示还在解压阶段（尚无画布可归属）。
+    const [importRun, setImportRun] = useState<(CanvasImportRun & { projectId: string }) | null>(null);
+    const importFileProgress = useSyncProgressStore((state) => (importRun ? state.syncingProjects[importRun.projectId] : undefined));
     const hydrated = useCanvasStore((state) => state.hydrated);
     const localProjects = useCanvasStore((state) => state.projects);
     const userId = useUserStore((state) => state.user?.id);
@@ -164,7 +168,9 @@ export default function CanvasPage() {
     };
     const importCanvas = async (file?: File) => {
         if (!file) return;
-        const hideLoading = message.loading({ content: "正在解压并准备导入画布...", duration: 0 });
+        // 导入的耗时几乎都在解压之后的媒体上传与画布保存上；一次性的 loading 提示会在真正
+        // 耗时的阶段开始前就消失，所以这里改用常驻面板，把阶段与文件计数显示到导入结束。
+        setImportRun({ projectId: "", title: file.name, index: 1, count: 1, phase: "reading" });
         try {
             const zip = await readZip(file);
             const projectFile = zip.get("projects.json");
@@ -176,17 +182,19 @@ export default function CanvasPage() {
                 const missing = item.files.find((entry) => !zip.get(entry.path));
                 if (missing) throw new Error(`压缩包缺少媒体文件：${missing.path}`);
             }
-            hideLoading();
             const remoteSyncEnabled = hasRemoteUserDataSyncSession();
             let remoteSyncWarning: unknown;
 
-            for (const item of data.projects) {
+            for (let projectIndex = 0; projectIndex < data.projects.length; projectIndex += 1) {
+                const item = data.projects[projectIndex];
                 const totalFiles = item.files.length;
+                const projectTitle = item.project.title || "导入画布";
                 const importedProjectId = importProject({
                     ...item.project,
-                    title: item.project.title || "导入画布",
+                    title: projectTitle,
                     nodes: item.project.nodes || [],
                 });
+                setImportRun({ projectId: importedProjectId, title: projectTitle, index: projectIndex + 1, count: data.projects.length, phase: "uploading" });
 
                 if (totalFiles > 0) {
                     useSyncProgressStore.getState().setProjectProgress(importedProjectId, {
@@ -356,6 +364,7 @@ export default function CanvasPage() {
                         phase: "saving",
                         message: remoteSyncEnabled ? "正在保存画布结构" : "正在保存本地画布",
                     });
+                    setImportRun((current) => (current ? { ...current, phase: "saving" } : current));
                     await flushCanvasStorePersistence();
                     if (remoteSyncEnabled) {
                         try {
@@ -378,16 +387,19 @@ export default function CanvasPage() {
             }
 
             await flushCanvasStorePersistence();
+            // 列表是远端分页查询的结果：不刷新的话新画布要等下一次重新拉取才出现，
+            // 用户会误以为导入没有生效。
+            if (userId) await libraryQuery.refetch();
             if (remoteSyncWarning) {
                 message.warning(`已导入 ${data.projects.length} 个画布，云端同步未完成，将自动重试`);
             } else {
                 message.success(remoteSyncEnabled ? `已导入 ${data.projects.length} 个画布并完成云端同步` : `已导入 ${data.projects.length} 个画布并保存到本地`);
             }
         } catch (error) {
-            hideLoading();
             console.error("导入画布失败", error);
             message.error(error instanceof Error ? `导入失败：${error.message}` : "导入失败，请选择有效的画布压缩包");
         } finally {
+            setImportRun(null);
             if (inputRef.current) inputRef.current.value = "";
         }
     };
@@ -537,6 +549,7 @@ export default function CanvasPage() {
                     onChange={setAssociationProjectId}
                 />
             </Modal>
+            {importRun ? <CanvasImportProgress run={importRun} progress={importFileProgress} /> : null}
             <CanvasHistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
             {deleteDialogOpen ? <Suspense fallback={null}><CanvasDeleteProjectsDialog /></Suspense> : null}
         </WorkspacePage>
