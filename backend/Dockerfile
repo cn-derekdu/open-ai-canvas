@@ -4,6 +4,9 @@ FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS payment-package-build
 
 ARG GOPROXY=https://proxy.golang.org,direct
 ENV GOPROXY=$GOPROXY
+# 构建期禁用 HTTP/2：模块代理在连接回收时会发 GOAWAY，恰好打断正在传输的大模块
+# （aws-sdk-go / alibaba-cloud-sdk-go 实测均触发），使冷缓存构建在 go mod download 反复失败。
+ENV GODEBUG=http2client=0
 
 RUN apk add --no-cache nodejs unzip zip
 
@@ -35,6 +38,9 @@ FROM golang:1.25-alpine AS backend-build
 
 ARG GOPROXY=https://proxy.golang.org,direct
 ENV GOPROXY=$GOPROXY
+# 构建期禁用 HTTP/2：模块代理在连接回收时会发 GOAWAY，恰好打断正在传输的大模块
+# （aws-sdk-go / alibaba-cloud-sdk-go 实测均触发），使冷缓存构建在 go mod download 反复失败。
+ENV GODEBUG=http2client=0
 
 RUN apk add --no-cache build-base
 
