@@ -63,7 +63,16 @@ export function CanvasWorkspacePanel({
                 <X className="size-4" />
             </button>
             {tab === "nodes" && (
-                <CanvasWorkspaceNodeListPanel nodes={nodes} config={config} results={searchCanvasNodes(nodes, deferredQuery, nodes.length, config)} query={query} deferredQuery={deferredQuery} selectedNodeIds={selectedNodeIds} onQueryChange={setQuery} onFocus={onFocus} />
+                <CanvasWorkspaceNodeListPanel
+                    nodes={nodes}
+                    config={config}
+                    results={searchCanvasNodes(nodes, deferredQuery, nodes.length, config)}
+                    query={query}
+                    deferredQuery={deferredQuery}
+                    selectedNodeIds={selectedNodeIds}
+                    onQueryChange={setQuery}
+                    onFocus={onFocus}
+                />
             )}
             {tab === "assets" && <CanvasWorkspaceAssetPanel onInsert={onInsertAssets} onManage={onAssets} onProjectAssets={onProjectAssets} />}
             {(tab === "tasks" || history) && (

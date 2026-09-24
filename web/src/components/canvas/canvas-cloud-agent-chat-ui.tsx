@@ -4,7 +4,35 @@ import { Tooltip } from "@/components/ui/base/tooltip";
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, ArrowUp, AtSign, Bookmark, CheckCircle2, ChevronDown, ChevronUp, CircleAlert, CircleDot, Clapperboard, Eye, HelpCircle, ImagePlus, Layers3, ListChecks, LoaderCircle, Palette, Pencil, Plus, RotateCcw, Shapes, Share2, ShoppingBag, Sparkles, Square, X, XCircle } from "lucide-react";
+import {
+    ArrowLeft,
+    ArrowUp,
+    AtSign,
+    Bookmark,
+    CheckCircle2,
+    ChevronDown,
+    ChevronUp,
+    CircleAlert,
+    CircleDot,
+    Clapperboard,
+    Eye,
+    HelpCircle,
+    ImagePlus,
+    Layers3,
+    ListChecks,
+    LoaderCircle,
+    Palette,
+    Pencil,
+    Plus,
+    RotateCcw,
+    Shapes,
+    Share2,
+    ShoppingBag,
+    Sparkles,
+    Square,
+    X,
+    XCircle,
+} from "lucide-react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { AIMessageMarkdown } from "@/components/ai/ai-message-markdown";
@@ -254,10 +282,13 @@ function useTypewriterText(targetText: string, shouldAnimate: boolean) {
         startLoop();
     }, [shouldAnimate, startLoop, targetText]);
 
-    useEffect(() => () => {
-        if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-        runningRef.current = false;
-    }, []);
+    useEffect(
+        () => () => {
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+            runningRef.current = false;
+        },
+        [],
+    );
 
     return visibleText;
 }
@@ -604,7 +635,14 @@ export const AGENT_SCENE_DEFS: Array<{ key: string; label: string; icon: typeof 
     { key: "others", label: "其他", icon: Shapes },
 ];
 
-export function AgentSceneCapsules({ buckets, installedIds, theme, disabled = false, onPick, onPickSkill }: {
+export function AgentSceneCapsules({
+    buckets,
+    installedIds,
+    theme,
+    disabled = false,
+    onPick,
+    onPickSkill,
+}: {
     buckets: AgentSceneBucket[];
     installedIds: Set<string>;
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];

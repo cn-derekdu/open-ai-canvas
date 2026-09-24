@@ -144,10 +144,16 @@ describe("repairMissingCanvasVideoPreviews", () => {
         const node = { ...videoNode("node-1", "asset-1", "resource:video-1"), metadata: { ...videoNode("node-1", "asset-1", "resource:video-1").metadata, videoPreview: { storageKey: "resource:poster-1" } } };
         useCanvasStore.setState({ projects: [project("canvas-1", [node])] });
 
-        await expect(repairMissingCanvasVideoPreviews(undefined, async () => { throw new Error("offline"); })).rejects.toThrow("offline");
+        await expect(
+            repairMissingCanvasVideoPreviews(undefined, async () => {
+                throw new Error("offline");
+            }),
+        ).rejects.toThrow("offline");
         expect(useCanvasStore.getState().projects[0].nodes[0].metadata?.videoPreview).toBeDefined();
 
-        const result = await repairMissingCanvasVideoPreviews(undefined, async () => { throw new ApiError("missing", { status: 404 }); });
+        const result = await repairMissingCanvasVideoPreviews(undefined, async () => {
+            throw new ApiError("missing", { status: 404 });
+        });
         expect(result).toEqual({ clearedPreviews: 1, updatedProjects: 1 });
         expect(useCanvasStore.getState().projects[0].nodes[0].metadata?.videoPreview).toBeUndefined();
     });
@@ -156,7 +162,13 @@ describe("repairMissingCanvasVideoPreviews", () => {
         const node = { ...videoNode("node-1", "asset-1", "resource:video-1"), metadata: { ...videoNode("node-1", "asset-1", "resource:video-1").metadata, videoPreview: { storageKey: "resource:poster-1" } } };
         useCanvasStore.setState({ projects: [project("canvas-1", [node])] });
         let rejectLookup!: (error: unknown) => void;
-        const repair = repairMissingCanvasVideoPreviews(undefined, () => new Promise((_, reject) => { rejectLookup = reject; }));
+        const repair = repairMissingCanvasVideoPreviews(
+            undefined,
+            () =>
+                new Promise((_, reject) => {
+                    rejectLookup = reject;
+                }),
+        );
         useCanvasStore.getState().updateProject("canvas-1", { title: "user edit" });
         rejectLookup(new ApiError("missing", { status: 404 }));
         await repair;

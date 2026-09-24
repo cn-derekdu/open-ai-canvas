@@ -44,9 +44,13 @@ export async function applyUserSession(payload: AuthSessionPayload) {
         // 切换存储 scope 时 user store 仍保留旧身份；此处只能先检查 generation，
         // 否则登录后的新用户会被误判为过期会话，hydrated 永远无法解除。
         if (!isCurrentGeneration(generation)) return;
-        withCanvasStorePersistenceSuppressed(() => withAssetStorePersistenceSuppressed(() => withUserScopedPersistenceSuppressed(() => {
-            resetUserScopedMemory();
-        })));
+        withCanvasStorePersistenceSuppressed(() =>
+            withAssetStorePersistenceSuppressed(() =>
+                withUserScopedPersistenceSuppressed(() => {
+                    resetUserScopedMemory();
+                }),
+            ),
+        );
         useUserStore.getState().setUser(payload.user);
         useUserStore.getState().setRuntimeLimits(payload.runtimeLimits);
         useUserStore.getState().setDrawingEngine(payload.drawingEngine);

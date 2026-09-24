@@ -243,7 +243,9 @@ export function useCanvasRenderModel({
     const visibleNodes = useMemo(() => candidateNodes.filter((node) => immediateRenderNodeIds.has(node.id) || mountedNodeIds.has(node.id)), [candidateNodes, immediateRenderNodeIds, mountedNodeIds]);
     const overviewRef = useRef(false);
     const overview = canvasOverviewMode(viewport.k, overviewRef.current);
-    useEffect(() => { overviewRef.current = overview; }, [overview]);
+    useEffect(() => {
+        overviewRef.current = overview;
+    }, [overview]);
     const nodeRenderLODById = useMemo(() => {
         const result = new Map<string, CanvasNodeRenderLOD>();
         for (const node of visibleNodes) {

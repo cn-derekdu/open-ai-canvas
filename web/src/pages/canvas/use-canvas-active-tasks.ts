@@ -27,7 +27,7 @@ export function useCanvasActiveTasks(projectId: string, enabled: boolean) {
                 const previous = current.find((item) => item.id === task.id);
                 if (!previous || previous.updatedAt > task.updatedAt) return current;
                 if (task.status !== "queued" && task.status !== "running") return current.filter((item) => item.id !== task.id);
-                return current.map((item) => item.id === task.id ? task : item);
+                return current.map((item) => (item.id === task.id ? task : item));
             });
         });
     }, [enabled, projectId, queryClient, taskIds]);
