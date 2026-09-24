@@ -161,9 +161,11 @@ function drawResizeCanvas(source: CanvasImageSource, sourceWidth: number, source
 function loadImage(dataUrl: string) {
     return new Promise<HTMLImageElement>((resolve, reject) => {
         const image = new Image();
-        // 只有跨源 HTTP(S) 地址才需要声明匿名跨域；同源的 /api 资源不能
-        // 强制走 CORS，否则缺少 ACAO 响应头时反而会加载失败。
-        if (isCrossOriginHttpUrl(dataUrl)) image.crossOrigin = "anonymous";
+        // 必须按跨源处理的两种地址：字面跨源的 HTTP(S)，以及字面同源但会 307
+        // 重定向到对象存储的平台资源端点（/api/resources/<id>/file）。
+        // 漏掉后者时图片会以 no-CORS 模式加载成功，但画布被标记为 tainted，
+        // 后续 toDataURL 直接抛「Tainted canvases may not be exported」。
+        if (imageRequiresCorsApproval(dataUrl)) image.crossOrigin = "anonymous";
         image.onload = () => resolve(image);
         // 缺少 onerror 时加载失败会让 Promise 永久挂起，调用方 await 后表现为「点击无反应」。
         image.onerror = () => reject(new Error("图片加载失败，无法处理该图片"));
@@ -176,6 +178,25 @@ function isCrossOriginHttpUrl(value: string) {
     try {
         const url = new URL(value, window.location.href);
         return (url.protocol === "http:" || url.protocol === "https:") && url.origin !== window.location.origin;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * 平台资源文件端点（/api/resources/<id>/file）字面上与站点同源，但它会 307
+ * 重定向到对象存储，真正的字节来自跨源域名。只按字面 origin 判断会把它误当成
+ * 同源资源，图片以 no-CORS 模式加载后画布被 taint，导出时抛
+ * 「Tainted canvases may not be exported」。
+ */
+export function imageRequiresCorsApproval(value: string) {
+    return isCrossOriginHttpUrl(value) || isResourceFileUrl(value);
+}
+
+function isResourceFileUrl(value: string) {
+    try {
+        const path = typeof window === "undefined" ? value.split(/[?#]/, 1)[0] : new URL(value, window.location.href).pathname;
+        return /\/resources\/[^/]+\/file$/.test(path);
     } catch {
         return false;
     }
