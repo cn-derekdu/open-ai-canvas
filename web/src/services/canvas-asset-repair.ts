@@ -154,15 +154,17 @@ export async function repairMissingCanvasVideoPreviews(projectIds?: Set<string>,
     const invalidIds = new Set<string>();
     const ids = [...previewResourceIds];
     for (let offset = 0; offset < ids.length; offset += 8) {
-        await Promise.all(ids.slice(offset, offset + 8).map(async (id) => {
-            try {
-                const resource = await lookup(id);
-                if (resource.status !== "ready") invalidIds.add(id);
-            } catch (error) {
-                if (error instanceof ApiError && error.status === 404) invalidIds.add(id);
-                else throw error;
-            }
-        }));
+        await Promise.all(
+            ids.slice(offset, offset + 8).map(async (id) => {
+                try {
+                    const resource = await lookup(id);
+                    if (resource.status !== "ready") invalidIds.add(id);
+                } catch (error) {
+                    if (error instanceof ApiError && error.status === 404) invalidIds.add(id);
+                    else throw error;
+                }
+            }),
+        );
     }
     if (getActiveUserScope() !== scope) throw new Error("账号已切换，已停止修复视频封面");
     if (!invalidIds.size) return { clearedPreviews: 0, updatedProjects: 0 };
