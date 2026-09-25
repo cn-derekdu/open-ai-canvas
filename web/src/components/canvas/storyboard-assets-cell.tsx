@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Image as ImageIcon, Music2, Play, UserRound } from "lucide-react";
 
-import { canvasNodeVideoPreviewUrl } from "@/lib/canvas/canvas-media-preview";
+import { CanvasVideoPreviewImage } from "@/components/canvas/canvas-video-preview-image";
 import { isStoryboardPreviewAsset } from "@/lib/canvas/canvas-storyboard-materializer";
 import { resolveMediaUrl } from "@/services/file-storage";
 import { CanvasNodeType, type CanvasNodeData, type StoryboardAssetBinding } from "@/types/canvas";
@@ -35,6 +35,7 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4 }: { bindings:
                     <Tooltip key={binding.nodeId} title={`${node?.title || "资产已失效"} · ${ROLE_LABELS[binding.role]}`}>
                         <button
                             type="button"
+                            data-icon-only
                             disabled={!node}
                             className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-md border border-foreground/10 bg-foreground/[0.035] text-foreground/45 outline-none transition enabled:hover:border-foreground/30 enabled:hover:text-foreground/70 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:cursor-not-allowed"
                             aria-label={`预览${node?.title || "失效资产"}`}
@@ -58,17 +59,16 @@ export function StoryboardAssetsCell({ bindings, nodes, limit = 4 }: { bindings:
 }
 
 function AssetThumbnail({ node }: { node: CanvasNodeData }) {
-    const videoPreview = canvasNodeVideoPreviewUrl(node);
     const source = useNodeMediaSource(node.type === CanvasNodeType.Video ? null : node);
     if (node.type === CanvasNodeType.Audio) return <Music2 className="size-4" />;
     if (node.metadata?.workflowKind === "character" && !source) return <UserRound className="size-4" />;
     if (node.type === CanvasNodeType.Video) {
-        return videoPreview ? (
+        return (
             <>
-                <img src={videoPreview} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover" />
+                <CanvasVideoPreviewImage node={node} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover" fallback={<Play className="size-4" />} />
                 <span className="absolute inset-0 grid place-items-center bg-black/15"><Play className="size-3.5 fill-white text-white" /></span>
             </>
-        ) : <Play className="size-4" />;
+        );
     }
     return source ? <img src={source} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover" /> : <ImageIcon className="size-4" />;
 }

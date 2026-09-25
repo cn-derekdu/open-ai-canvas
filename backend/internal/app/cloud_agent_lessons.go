@@ -108,6 +108,26 @@ func (s *Service) attachCloudAgentLessons(canonical *canonicalAgentRequest, user
 	}
 }
 
+// cloudAgentRecordMemorySegment 把系统提示里已经存在的个人记忆块登记为分段。
+// 记忆块是在策略编译之后拼接的，编译器录不到它；不登记就会让"系统提示分段"合计
+// 小于 system 桶，读数看起来像少算了一截。
+func cloudAgentRecordMemorySegment(policy *cloudAgentPolicySnapshot, system string) {
+	if policy == nil {
+		return
+	}
+	index := strings.Index(system, cloudAgentLessonBlockMarker)
+	if index < 0 {
+		for i := range policy.SystemSegments {
+			if policy.SystemSegments[i].Key == "memory" {
+				policy.SystemSegments = append(policy.SystemSegments[:i], policy.SystemSegments[i+1:]...)
+				break
+			}
+		}
+		return
+	}
+	cloudAgentRecordSystemSegment(policy, "memory", "个人记忆", system[index:])
+}
+
 func cloudAgentRememberLesson(repo *repository.Repository, userID string, state *cloudAgentRuntime, call cloudAgentCall) (any, error) {
 	if state == nil {
 		return nil, BadAuthRequest("当前运行状态无效")
@@ -545,7 +565,12 @@ func cloudAgentLessonSearchTokens(keyword string) []string {
 	seen := map[string]bool{}
 	for _, raw := range strings.FieldsFunc(keyword, cloudAgentLessonTokenSeparator) {
 		token := strings.ToLower(strings.TrimSpace(raw))
-		if utf8.RuneCountInString(token) < 2 || seen[token] {
+		// 单字停用词过滤照搬的是英文逻辑（a / I）；汉字单字「梗」「钩」「戏」本身是完整
+		// 语义的最小单位。一刀切丢掉后 tokens 为空，检索会静默回落为「列前 N 条」。
+		// 这里只放行单个汉字的 token，英文/数字单字与空串仍按停用词丢掉。
+		first, size := utf8.DecodeRuneInString(token)
+		singleHan := size == len(token) && unicode.Is(unicode.Han, first)
+		if (!singleHan && utf8.RuneCountInString(token) < 2) || seen[token] {
 			continue
 		}
 		seen[token] = true

@@ -3,11 +3,11 @@ import { persist, type PersistStorage, type StorageValue } from "zustand/middlew
 
 import { nanoid } from "nanoid";
 import { sameCanvasContent } from "@/lib/canvas/canvas-content";
-import { DEFAULT_CANVAS_BACKGROUND_MODE, normalizeCanvasAppearance, readCanvasAppearanceDefault, type CanvasAppearance } from "@/lib/canvas/canvas-appearance";
+import { canvasAppearanceForTheme, DEFAULT_CANVAS_BACKGROUND_MODE, normalizeCanvasAppearance, readCanvasAppearanceDefault, type CanvasAppearance } from "@/lib/canvas/canvas-appearance";
 import { parseCanvasStorageDocument, rebaseCanvasProjects, serializeCanvasStorageDocument, type CanvasStorageDocument } from "@/lib/canvas/canvas-storage-revision";
 import { localForageStorageForScope } from "@/lib/localforage-storage";
 import { getActiveUserScope } from "@/lib/user-scope";
-import type { CanvasBackgroundMode } from "@/lib/canvas-theme";
+import { DEFAULT_CANVAS_COLOR_THEME, type CanvasBackgroundMode } from "@/lib/canvas-theme";
 import type { CanvasStarterMode } from "@/lib/canvas/canvas-starter";
 import type { CanvasAssistantSession, CanvasConnection, CanvasNodeData, ViewportTransform } from "@/types/canvas";
 import type { DirectorScene } from "@/types/director";
@@ -420,7 +420,8 @@ const canvasStorage: PersistStorage<CanvasStore> = {
             if (canvasSaveTimers.get(scope) === timer) canvasSaveTimers.delete(scope);
             void writeQueuedCanvasPersist(scope, token).catch((error) => {
                 // 自动保存无法把异常返回给原始状态更新调用方，但失败队列仍会保留给下一次写入或显式 flush 重试。
-                console.error("画布本地持久化失败，已保留待写队列", { scope, error });
+                // 自动保存失败有队列兜底，属可降级场景；在无本地存储的环境（如测试进程）不应升级为错误级日志。
+                console.warn("画布本地持久化失败，已保留待写队列", { scope, error });
             });
         }, 400);
         canvasSaveTimers.set(scope, timer);
@@ -460,7 +461,7 @@ export const useCanvasStore = create<CanvasStore>()(
                     connections: [],
                     chatSessions: [],
                     activeChatId: null,
-                    appearance: appearanceDefault?.appearance,
+                    appearance: appearanceDefault?.appearance ?? canvasAppearanceForTheme(DEFAULT_CANVAS_COLOR_THEME),
                     backgroundMode: appearanceDefault?.backgroundMode || DEFAULT_CANVAS_BACKGROUND_MODE,
                     showImageInfo: false,
                     viewport: initialViewport,
@@ -511,6 +512,10 @@ export const useCanvasStore = create<CanvasStore>()(
                 const current = state.projects.find((project) => project.id === id);
                 if (!current) return state;
                 const next = { ...current, ...patch };
+                if (Object.keys(patch).every((key) => key === "viewport")) {
+                    if (samePersistenceValue(current.viewport, next.viewport)) return state;
+                    return { projects: state.projects.map((project) => project === current ? next : project) };
+                }
                 const contentChanged = !sameCanvasContent(current, next);
                 if (!contentChanged && samePersistenceValue(current.viewport, next.viewport)) return state;
                 if (contentChanged) next.updatedAt = new Date().toISOString();

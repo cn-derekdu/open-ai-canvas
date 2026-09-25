@@ -2,6 +2,7 @@ import type { ModelCapabilityChoice } from "@/components/model-protocol-picker";
 import { defaultModelCapabilityConfig, normalizeModelCapabilityConfig, type ModelCapabilityConfig } from "@/lib/model-capabilities";
 import { modelProtocolSupportsTokenBilling, type ModelProtocolDefinition } from "@/lib/model-protocols";
 import type { ChannelModel } from "@/services/api/wallet";
+import type { ModelTag } from "@/lib/model-tags";
 import { defaultPriceTier, legacyPriceTierToForm, priceTierToForm, type PriceTierFormValues } from "./channel-model-price-tier-form";
 
 export type ChannelModelFormValues = {
@@ -9,6 +10,7 @@ export type ChannelModelFormValues = {
     providerModelKey?: string;
     displayName?: string;
     channelLabel?: string;
+    tags: ModelTag[];
     description?: string;
     icon?: string;
     capability: ModelCapabilityChoice;
@@ -33,6 +35,7 @@ export function initialChannelModelValues(item: ChannelModel | null, protocols: 
         providerModelKey: upstreamModel,
         displayName: item?.displayName || "",
         channelLabel: item?.channelLabel || "",
+        tags: item?.tags?.map((tag) => ({ ...tag })) || [],
         description: item?.description || "",
         icon: item?.icon || "",
         capability,
@@ -90,9 +93,7 @@ export function validateChannelModelPrices(values: Pick<ChannelModelFormValues, 
         if (tier.matchMode === "advanced") {
             if (tier.operation && tier.operation !== "*" && !operations[capability]?.includes(tier.operation)) fail("生成方式与模型能力不匹配");
             const specific = (value: string | undefined) => Boolean(value && value !== "*");
-            if (capability === "video" && tier.videoGenerateAudio && !["*", "true", "false"].includes(tier.videoGenerateAudio)) fail("请选择任意音频、有声或无声");
-            if (!(specific(tier.operation) || (capability === "image" && (specific(tier.quality) || specific(tier.size))) || (capability === "video" && (specific(tier.resolution) || tier.videoSeconds > 0 || tier.imageCount > 0 || specific(tier.videoGenerateAudio)))))
-                fail("规格价格至少需要一个匹配条件；统一价格请选择默认价格");
+            if (!(specific(tier.operation) || (capability === "image" && (specific(tier.quality) || specific(tier.size))) || (capability === "video" && specific(tier.resolution)))) fail("规格价格至少需要一个匹配条件；统一价格请选择默认价格");
         }
         const prices = tier.billingMode !== "token" ? [tier.unitPrice] : capability === "video" ? [tier.outputTokenPrice] : [tier.inputTokenPrice, tier.outputTokenPrice, tier.cachedTokenPrice];
         if (prices.some((price) => typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1_000_000)) fail("积分价格必须是 0 到 1000000 之间的有效数值");

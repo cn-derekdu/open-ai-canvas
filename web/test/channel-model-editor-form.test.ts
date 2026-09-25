@@ -11,10 +11,12 @@ describe("channel model editor drafts", () => {
     test("new drafts select an enabled protocol and never share price state", () => {
         const first = initialChannelModelValues(null, protocols);
         first.priceTiers[0].unitPrice = 42;
+        first.tags.push({ text: "限时特价", color: "purple" });
         const second = initialChannelModelValues(null, protocols);
         expect(second.protocol).toBe("text");
         expect(second.priceTiers[0].unitPrice).toBe(0);
         expect(second.modelKey).toBe("");
+        expect(second.tags).toEqual([]);
     });
     test("missing catalogs do not invent a protocol", () => {
         expect(initialChannelModelValues(null, []).protocol).toBeUndefined();
@@ -83,11 +85,12 @@ describe("pricing write validation", () => {
         video.priceTiers[0].outputTokenPrice = 0.000001;
         expect(() => validateChannelModelPrices(video)).not.toThrow();
     });
-    test("accepts audio-only video price conditions and rejects invalid audio selectors", () => {
-        for (const videoGenerateAudio of ["true", "false"]) {
-            expect(() => validateChannelModelPrices({ ...draft, capability: "video", protocol: "volcengine-ark-video", priceTiers: [{ ...defaultPriceTier("advanced"), billingMode: "token", videoGenerateAudio }] })).not.toThrow();
+    test("rejects removed video conditions and accepts visible operation or resolution matches", () => {
+        for (const hiddenCondition of [{ videoGenerateAudio: "false" }, { videoSeconds: 5 }, { imageCount: 2 }]) {
+            expect(() => validateChannelModelPrices({ ...draft, capability: "video", protocol: "volcengine-ark-video", priceTiers: [{ ...defaultPriceTier("advanced"), billingMode: "token", ...hiddenCondition }] })).toThrow("匹配条件");
         }
-        expect(() => validateChannelModelPrices({ ...draft, capability: "video", protocol: "volcengine-ark-video", priceTiers: [{ ...defaultPriceTier("advanced"), videoGenerateAudio: "yes" }] })).toThrow("有声或无声");
+        expect(() => validateChannelModelPrices({ ...draft, capability: "video", protocol: "volcengine-ark-video", priceTiers: [{ ...defaultPriceTier("advanced"), operation: "image_to_video" }] })).not.toThrow();
+        expect(() => validateChannelModelPrices({ ...draft, capability: "video", protocol: "volcengine-ark-video", priceTiers: [{ ...defaultPriceTier("advanced"), resolution: "1080p" }] })).not.toThrow();
     });
 });
 

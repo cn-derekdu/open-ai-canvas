@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"infinite-canvas/backend/internal/assets"
 	"infinite-canvas/backend/internal/model"
 	"infinite-canvas/backend/internal/repository"
 
@@ -38,18 +39,16 @@ type AnalyticsOverview struct {
 }
 
 type AnalyticsKPI struct {
-	ActiveUsers         int     `json:"activeUsers"`
-	DAU                 int     `json:"dau"`
-	WAU                 int     `json:"wau"`
-	MAU                 int     `json:"mau"`
-	GenerationTasks     int     `json:"generationTasks"`
-	UpstreamRequests    int     `json:"upstreamRequests"`
-	SuccessRate         float64 `json:"successRate"`
-	P95DurationMs       int64   `json:"p95DurationMs"`
-	CurrentQueuedTasks  int64   `json:"currentQueuedTasks"`
-	EstimatedCostMicros int64   `json:"estimatedCostMicros"`
-	CostAvailable       bool    `json:"costAvailable"`
-	Currency            string  `json:"currency"`
+	ActiveUsers        int              `json:"activeUsers"`
+	DAU                int              `json:"dau"`
+	WAU                int              `json:"wau"`
+	MAU                int              `json:"mau"`
+	GenerationTasks    int              `json:"generationTasks"`
+	UpstreamRequests   int              `json:"upstreamRequests"`
+	SuccessRate        float64          `json:"successRate"`
+	P95DurationMs      int64            `json:"p95DurationMs"`
+	CurrentQueuedTasks int64            `json:"currentQueuedTasks"`
+	Finance            AnalyticsFinance `json:"finance"`
 }
 
 type AnalyticsTrendPoint struct {
@@ -61,24 +60,22 @@ type AnalyticsTrendPoint struct {
 }
 
 type AnalyticsModelRow struct {
-	Model               string  `json:"model"`
-	Capability          string  `json:"capability"`
-	Tasks               int     `json:"tasks"`
-	Requests            int     `json:"requests"`
-	UniqueUsers         int     `json:"uniqueUsers"`
-	TaskSuccessRate     float64 `json:"taskSuccessRate"`
-	RequestSuccessRate  float64 `json:"requestSuccessRate"`
-	P50DurationMs       int64   `json:"p50DurationMs"`
-	P95DurationMs       int64   `json:"p95DurationMs"`
-	InputTokens         int64   `json:"inputTokens"`
-	OutputTokens        int64   `json:"outputTokens"`
-	CachedTokens        int64   `json:"cachedTokens"`
-	UsageAvailable      bool    `json:"usageAvailable"`
-	MediaCount          int     `json:"mediaCount"`
-	VideoSeconds        int     `json:"videoSeconds"`
-	EstimatedCostMicros int64   `json:"estimatedCostMicros"`
-	CostAvailable       bool    `json:"costAvailable"`
-	Currency            string  `json:"currency"`
+	Model              string           `json:"model"`
+	Capability         string           `json:"capability"`
+	Tasks              int              `json:"tasks"`
+	Requests           int              `json:"requests"`
+	UniqueUsers        int              `json:"uniqueUsers"`
+	TaskSuccessRate    float64          `json:"taskSuccessRate"`
+	RequestSuccessRate float64          `json:"requestSuccessRate"`
+	P50DurationMs      int64            `json:"p50DurationMs"`
+	P95DurationMs      int64            `json:"p95DurationMs"`
+	InputTokens        int64            `json:"inputTokens"`
+	OutputTokens       int64            `json:"outputTokens"`
+	CachedTokens       int64            `json:"cachedTokens"`
+	UsageAvailable     bool             `json:"usageAvailable"`
+	MediaCount         int              `json:"mediaCount"`
+	VideoSeconds       int              `json:"videoSeconds"`
+	Finance            AnalyticsFinance `json:"finance"`
 }
 
 type AnalyticsUserRow struct {
@@ -182,6 +179,11 @@ func (s *Service) AdminAnalytics(actor *model.User, query AnalyticsQuery) (*Anal
 		return nil, err
 	}
 	result := buildAnalyticsOverview(filter, tasks, rollingTasks, rollingLogs, logs, activities, users)
+	records, err := s.analyticsFinancialRecords(logs)
+	if err != nil {
+		return nil, err
+	}
+	applyAnalyticsFinance(result, records)
 	result.KPI.CurrentQueuedTasks = queued
 	return result, nil
 }
@@ -245,7 +247,7 @@ func (s *Service) decorateAPICallLogs(logs []model.ApiCallLog) error {
 				billingOrderIDs = append(billingOrderIDs, log.BillingOrderID)
 			}
 		}
-		if (log.Capability != "image" && log.Capability != "video") || log.TaskID == "" {
+		if (log.Capability != "image" && log.Capability != "video" && log.Capability != "audio") || log.TaskID == "" {
 			continue
 		}
 		if _, exists := seenTaskIDs[log.TaskID]; exists {
@@ -302,6 +304,7 @@ func (s *Service) decorateAPICallLogs(logs []model.ApiCallLog) error {
 		}
 		if task, exists := taskByID[logs[index].TaskID]; exists && task.UserID == logs[index].UserID {
 			logs[index].TaskStatus = task.Status
+			logs[index].MediaStage = task.MediaStage
 			previewURL, previewKind := taskMediaPreview(task.ResultJSON, task.Type)
 			if canvasResourceID(previewURL) != "" {
 				logs[index].MediaPreviewURL = "/api/admin/api-logs/" + logs[index].ID + "/media"
@@ -324,21 +327,15 @@ func (s *Service) OpenAdminAPICallLogMediaRange(actor *model.User, logID string,
 	return s.openResourceRange(userID, resource, rangeHeader)
 }
 
-func (s *Service) PrepareAdminAPICallLogMediaDelivery(actor *model.User, logID string, rangeHeader string) (*ResourceDelivery, error) {
+func (s *Service) PrepareAdminAPICallLogMediaDelivery(actor *model.User, logID string, options ResourceAccessOptions, rangeHeader string) (*ResourceDelivery, error) {
 	userID, resource, err := s.adminAPICallLogMediaResource(actor, logID)
 	if err != nil {
 		return nil, err
 	}
-	delivery, err := s.prepareResourceDelivery(userID, resource, ResourceDeliveryOptions{})
-	if err != nil || delivery.RedirectURL != "" {
-		return delivery, err
+	if options.Purpose == "" {
+		options.Purpose = assets.PurposeDisplay
 	}
-	stream, err := s.openResourceRange(userID, resource, rangeHeader)
-	if err != nil {
-		return nil, err
-	}
-	delivery.Stream = stream
-	return delivery, nil
+	return s.prepareResourceDelivery(userID, resource, options, rangeHeader)
 }
 
 func (s *Service) adminAPICallLogMediaResource(actor *model.User, logID string) (string, *model.Resource, error) {
@@ -448,14 +445,22 @@ func (s *Service) AdminAnalyticsCSV(actor *model.User, query AnalyticsQuery) ([]
 	if err != nil {
 		return nil, err
 	}
+	records, err := s.analyticsFinancialRecords(logs)
+	if err != nil {
+		return nil, err
+	}
 	var buffer bytes.Buffer
 	buffer.WriteString("\xEF\xBB\xBF")
 	writer := csv.NewWriter(&buffer)
-	_ = writer.Write([]string{"时间", "用户ID", "渠道ID", "任务ID", "能力", "请求阶段", "模型", "状态", "状态码", "耗时毫秒", "输入Token", "输出Token", "缓存Token", "媒体数量", "视频秒数", "估算费用(微单位)", "币种", "错误类型"})
+	_ = writer.Write([]string{"时间", "用户ID", "渠道ID", "任务ID", "能力", "请求阶段", "模型", "状态", "状态码", "耗时毫秒", "输入Token", "输出Token", "缓存Token", "媒体数量", "视频秒数", "收入(微积分)", "成本(微积分)", "利润(微积分)", "错误类型"})
 	for _, log := range logs {
-		cost := ""
-		if log.CostAvailable {
-			cost = strconv.FormatInt(log.EstimatedCostMicros, 10)
+		revenue, cost, profit := "", "", ""
+		if record, exists := records[log.ID]; exists {
+			revenue = strconv.FormatInt(record.Revenue, 10)
+			if record.Cost != nil {
+				cost = strconv.FormatInt(*record.Cost, 10)
+				profit = strconv.FormatInt(record.Revenue-*record.Cost, 10)
+			}
 		}
 		inputTokens, outputTokens, cachedTokens := "", "", ""
 		if log.UsageAvailable {
@@ -463,7 +468,7 @@ func (s *Service) AdminAnalyticsCSV(actor *model.User, query AnalyticsQuery) ([]
 			outputTokens = strconv.FormatInt(log.OutputTokens, 10)
 			cachedTokens = strconv.FormatInt(log.CachedTokens, 10)
 		}
-		_ = writer.Write([]string{log.CreatedAt.Format(time.RFC3339), log.UserID, log.ChannelID, log.TaskID, log.Capability, log.RequestKind, log.Model, string(log.Status), strconv.Itoa(log.StatusCode), strconv.FormatInt(log.DurationMs, 10), inputTokens, outputTokens, cachedTokens, strconv.Itoa(log.MediaCount), strconv.Itoa(log.VideoSeconds), cost, log.Currency, classifyAPICallError(log)})
+		_ = writer.Write([]string{log.CreatedAt.Format(time.RFC3339), log.UserID, log.ChannelID, log.TaskID, log.Capability, log.RequestKind, log.Model, string(log.Status), strconv.Itoa(log.StatusCode), strconv.FormatInt(log.DurationMs, 10), inputTokens, outputTokens, cachedTokens, strconv.Itoa(log.MediaCount), strconv.Itoa(log.VideoSeconds), revenue, cost, profit, classifyAPICallError(log)})
 	}
 	writer.Flush()
 	return buffer.Bytes(), writer.Error()
@@ -598,16 +603,9 @@ func buildAnalyticsOverview(filter repository.AnalyticsFilter, tasks []model.Tas
 	result.KPI.DAU = rollingActiveUsers(rollingActivities, rollingTasks, rollingLogs, filter.To.AddDate(0, 0, -1), filter.To)
 	result.KPI.WAU = rollingActiveUsers(rollingActivities, rollingTasks, rollingLogs, filter.To.AddDate(0, 0, -7), filter.To)
 	result.KPI.MAU = rollingActiveUsers(rollingActivities, rollingTasks, rollingLogs, filter.To.AddDate(0, 0, -30), filter.To)
-	currency := ""
 	for _, log := range logs {
 		durations = append(durations, log.DurationMs)
-		if log.CostAvailable {
-			result.KPI.CostAvailable = true
-			result.KPI.EstimatedCostMicros += log.EstimatedCostMicros
-			currency = mergeCurrency(currency, log.Currency)
-		}
 	}
-	result.KPI.Currency = currency
 	result.KPI.P95DurationMs = percentile(durations, 0.95)
 	result.Trend = buildAnalyticsTrend(filter, tasks, logs, activities)
 	result.Models = buildAnalyticsModels(tasks, logs)
@@ -724,11 +722,6 @@ func buildAnalyticsModels(tasks []model.Task, logs []model.ApiCallLog) []Analyti
 		}
 		item.row.MediaCount += log.MediaCount
 		item.row.VideoSeconds += log.VideoSeconds
-		if log.CostAvailable {
-			item.row.CostAvailable = true
-			item.row.EstimatedCostMicros += log.EstimatedCostMicros
-			item.row.Currency = mergeCurrency(item.row.Currency, log.Currency)
-		}
 	}
 	result := make([]AnalyticsModelRow, 0, len(items))
 	for _, item := range items {
@@ -917,16 +910,6 @@ func percentile(values []int64, quantile float64) int64 {
 	return items[index]
 }
 
-func mergeCurrency(current string, next string) string {
-	if next == "" {
-		return current
-	}
-	if current == "" || current == next {
-		return next
-	}
-	return "MIXED"
-}
-
 func capabilityFromTaskType(taskType string) string {
 	value := strings.ToLower(taskType)
 	for _, capability := range []string{"video", "image", "audio", "text"} {
@@ -1008,7 +991,7 @@ func (s *Service) enrichAPICallLogFailureSummary(log *model.ApiCallLog, response
 		Body:       string(responseBody),
 	})
 	detail := strings.TrimSpace(log.Error)
-	if detail == "" || detail == userMessage {
+	if detail == "" || detail == userMessage || strings.Contains(userMessage, "；上游："+detail) {
 		log.Error = userMessage
 		return
 	}

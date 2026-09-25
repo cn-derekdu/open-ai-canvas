@@ -1,9 +1,10 @@
 import { CollectionToolbar } from "@/components/layout/collection-toolbar";
+import { assetGridCardMinWidth, assetGridDensityOptions, parseAssetGridDensity, type AssetGridDensity } from "./asset-grid-density";
 import { DeleteButton } from "@/components/ui/base/buttons/delete-button";
 import { AlertTriangle, AudioLines, Box, CheckCheck, Clapperboard, Copy, Download, FileText, FileUp, FolderOpen, FolderPlus, Image as ImageIcon, Images, LayoutGrid, Link2, Maximize2, MoreHorizontal, PencilLine, Play, Plus, RotateCcw, Search, Trash2, Upload, ZoomIn, ZoomOut, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Drawer, Dropdown, Form, Input, Modal, Popconfirm, Progress, Select, Space, Tag, Typography } from "antd";
+import { App, Button, Drawer, Dropdown, Form, Input, Modal, Popconfirm, Progress, Space, Tag, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { useNavigate } from "react-router";
 
@@ -12,7 +13,6 @@ import { WorkspaceState } from "@/components/layout/workspace-state";
 import { AssetMediaPreview } from "@/components/asset-media-preview";
 import { AssetLibraryCard, AssetLibraryCardMedia } from "@/components/assets/asset-library-card";
 import { Switch } from "@/components/ui/base/switch";
-import { saveAs } from "file-saver";
 import { cn } from "@/lib/utils";
 
 import { useCopyText } from "@/hooks/use-copy-text";
@@ -22,14 +22,16 @@ import { resourceStorageLabel, resourceStorageLocation, resourceStorageTitle } f
 import { formatBytes, readFileAsDataUrl, readImageMeta } from "@/lib/image-utils";
 import { uploadImage } from "@/services/image-storage";
 import { uploadMediaFile } from "@/services/file-storage";
+import { downloadBrowserMedia } from "@/services/browser-download";
 import { flushAssetStorePersistence, useAssetStore, type Asset, type AssetCategory, type AssetKind, type ImageAsset } from "@/stores/use-asset-store";
 import { exportAssets, readAssetPackage } from "./asset-transfer";
 import { AssetStorageUsage, assetStorageUsageQueryKey } from "./asset-storage-usage";
-import { deleteAssetWithRemoteSync, loadAssetLibraryPage, localSavedRemotePendingMessage, saveRemoteUserDataNow } from "@/services/user-data-sync";
+import { deleteAssetWithRemoteSync, deleteAssetsWithRemoteSync, loadAssetLibraryPage, loadAssetsForUse, localSavedRemotePendingMessage, saveRemoteUserDataNow } from "@/services/user-data-sync";
 import { useUserStore } from "@/stores/use-user-store";
 import { createAssetFolder, deleteAssetFolder, listAssetFolders, listRemoteAssetsPage, moveRemoteAssetsToFolder, updateAssetFolder, type AssetFolder } from "@/services/api/user-data";
 import { AssetBatchUploadModal } from "./asset-batch-upload-modal";
 import { useAppearanceStore } from "@/stores/use-appearance-store";
+import { Select } from "@/components/ui/base/select";
 
 type LibraryAsset = Exclude<Asset, { kind: "entity" }>;
 
@@ -62,7 +64,6 @@ const categoryOptions = [{ label: "全部分类", value: "all" }, ...ASSET_CATEG
 const ASSET_LIBRARY_QUERY_KEY = ["asset-library"] as const;
 const ASSET_FOLDER_QUERY_KEY = ["asset-folders"] as const;
 const ASSET_GRID_DENSITY_KEY = "infinite-canvas:asset-grid-density";
-type AssetGridDensity = 6 | 8 | 10;
 type AssetFolderFilter = "all" | "uncategorized" | string;
 
 const assetKindIcons: Record<LibraryAsset["kind"], LucideIcon> = {
@@ -268,27 +269,47 @@ export default function AssetsPage() {
         setIsAssetOpen(true);
     };
 
-    const openEdit = (asset: LibraryAsset) => {
-        setEditingAsset(asset);
+    const openEdit = async (asset: LibraryAsset) => {
+        let editableAsset = useAssetStore.getState().assets.find((item): item is LibraryAsset => item.id === asset.id && item.kind !== "entity");
+        if (!editableAsset) {
+            try {
+                // 分页卡片是轻量 DTO，编辑前补齐完整记录，避免保存时覆盖远端 metadata。
+                await loadAssetsForUse([asset.id]);
+                editableAsset = useAssetStore.getState().assets.find((item): item is LibraryAsset => item.id === asset.id && item.kind !== "entity");
+            } catch (error) {
+                message.error(error instanceof Error ? error.message : "素材详情读取失败，请重试");
+                return;
+            }
+        }
+        if (!editableAsset) {
+            message.error("素材详情读取失败，请重试");
+            return;
+        }
+        setEditingAsset(editableAsset);
         setImageFile(null);
         setImageUploading(false);
         setImageUploadProgress(null);
-        setFormKind(asset.kind);
-        setImageDraft(asset.kind === "image" ? asset.data : null);
+        setFormKind(editableAsset.kind);
+        setImageDraft(editableAsset.kind === "image" ? editableAsset.data : null);
         form.setFieldsValue({
-            kind: asset.kind,
-            category: asset.category || "other",
-            folderId: asset.folderId || "",
-            title: asset.title,
-            coverUrl: asset.coverUrl,
-            tags: asset.tags || [],
-            source: asset.source,
-            note: asset.note,
-            content: asset.kind === "text" ? asset.data.content : "",
-            arkAssetId: asset.arkAssetId || "",
-            portraitCertified: asset.portraitCertified === true,
+            kind: editableAsset.kind,
+            category: editableAsset.category || "other",
+            folderId: editableAsset.folderId || "",
+            title: editableAsset.title,
+            coverUrl: editableAsset.coverUrl,
+            tags: editableAsset.tags || [],
+            source: editableAsset.source,
+            note: editableAsset.note,
+            content: editableAsset.kind === "text" ? editableAsset.data.content : "",
+            arkAssetId: editableAsset.arkAssetId || "",
+            portraitCertified: editableAsset.portraitCertified === true,
         });
         setIsAssetOpen(true);
+    };
+
+    const ensureAssetsInStore = async (assetIds: string[]) => {
+        const missingIds = assetIds.filter((id) => !useAssetStore.getState().assets.some((asset) => asset.id === id));
+        if (missingIds.length) await loadAssetsForUse(missingIds);
     };
 
     const saveAsset = async () => {
@@ -395,11 +416,15 @@ export default function AssetsPage() {
         copyText(asset.data.content, "文本已复制");
     };
 
-    const downloadImage = (asset: LibraryAsset) => {
+    const downloadImage = async (asset: LibraryAsset) => {
         if (asset.kind !== "image" && asset.kind !== "video" && asset.kind !== "audio" && asset.kind !== "model") return;
         const url = asset.kind === "image" ? asset.data.dataUrl : asset.data.url;
         const extension = asset.kind === "model" ? asset.data.fileName.split(".").pop() || "glb" : asset.data.mimeType.split("/")[1] || "png";
-        saveAs(url, `${asset.title || "asset"}.${extension}`);
+        try {
+            await downloadBrowserMedia({ storageKey: asset.data.storageKey, url, fileName: `${asset.title || "asset"}.${extension}` });
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "下载失败");
+        }
     };
 
     const exportAllAssets = async () => {
@@ -430,9 +455,10 @@ export default function AssetsPage() {
     };
 
     const restoreAsset = async (asset: LibraryAsset) => {
-        updateAsset(asset.id, { status: "confirmed" });
-        await flushAssetStorePersistence();
         try {
+            await ensureAssetsInStore([asset.id]);
+            updateAsset(asset.id, { status: "confirmed" });
+            await flushAssetStorePersistence();
             await saveRemoteUserDataNow();
             message.success(`已还原素材「${asset.title}」`);
         } catch (error) {
@@ -442,13 +468,12 @@ export default function AssetsPage() {
 
     const batchRestore = async () => {
         if (!selectedIds.length) return;
-        for (const id of selectedIds) {
-            updateAsset(id, { status: "confirmed" });
-        }
-        const count = selectedIds.length;
-        setSelectedIds([]);
-        await flushAssetStorePersistence();
         try {
+            await ensureAssetsInStore(selectedIds);
+            for (const id of selectedIds) updateAsset(id, { status: "confirmed" });
+            const count = selectedIds.length;
+            setSelectedIds([]);
+            await flushAssetStorePersistence();
             await saveRemoteUserDataNow();
             message.success(`已还原 ${count} 个素材`);
         } catch (error) {
@@ -457,9 +482,10 @@ export default function AssetsPage() {
     };
 
     const archiveAsset = async (asset: LibraryAsset) => {
-        updateAsset(asset.id, { status: "archived" });
-        await flushAssetStorePersistence();
         try {
+            await ensureAssetsInStore([asset.id]);
+            updateAsset(asset.id, { status: "archived" });
+            await flushAssetStorePersistence();
             await saveRemoteUserDataNow();
             message.success(`已将「${asset.title}」移入回收站`);
         } catch (error) {
@@ -469,13 +495,12 @@ export default function AssetsPage() {
 
     const batchArchive = async () => {
         if (!selectedIds.length) return;
-        for (const id of selectedIds) {
-            updateAsset(id, { status: "archived" });
-        }
-        const count = selectedIds.length;
-        setSelectedIds([]);
-        await flushAssetStorePersistence();
         try {
+            await ensureAssetsInStore(selectedIds);
+            for (const id of selectedIds) updateAsset(id, { status: "archived" });
+            const count = selectedIds.length;
+            setSelectedIds([]);
+            await flushAssetStorePersistence();
             await saveRemoteUserDataNow();
             message.success(`已将 ${count} 个素材移入回收站`);
         } catch (error) {
@@ -487,9 +512,7 @@ export default function AssetsPage() {
         const count = trashAssets.length;
         if (!count) return;
         try {
-            for (const asset of trashAssets) {
-                await deleteAssetWithRemoteSync(asset.id);
-            }
+            await deleteAssetsWithRemoteSync(trashAssets.map((asset) => asset.id));
             setSelectedIds([]);
             message.success(`已彻底清空回收站 ${count} 个素材`);
         } catch (error) {
@@ -516,7 +539,7 @@ export default function AssetsPage() {
     const confirmBatchDelete = async () => {
         if (!selectedAssets.length) return;
         try {
-            for (const asset of selectedAssets) await deleteAssetWithRemoteSync(asset.id);
+            await deleteAssetsWithRemoteSync(selectedAssets.map((asset) => asset.id));
             message.success(`已彻底删除 ${selectedAssets.length} 个素材`);
             setSelectedIds([]);
             setBatchDeleteOpen(false);
@@ -604,11 +627,12 @@ export default function AssetsPage() {
                             }}
                             />
                             <Select
+                                aria-label="素材显示密度"
                                 value={gridDensity}
                                 className="w-full sm:w-32"
-                                suffixIcon={<LayoutGrid className="size-3.5" />}
-                                options={[{ label: "舒适", value: 6 }, { label: "标准", value: 8 }, { label: "紧凑", value: 10 }]}
-                                onChange={(value) => setGridDensity(value as AssetGridDensity)}
+                                prefix={<LayoutGrid aria-hidden className="size-3.5" />}
+                                options={assetGridDensityOptions}
+                                onChange={(value) => setGridDensity(parseAssetGridDensity(value))}
                             />
                         </CollectionToolbar>
                 </div>
@@ -724,7 +748,7 @@ export default function AssetsPage() {
                                     {visibleAssets.length === 0 ? (
                                         <WorkspaceState icon="assets" compact title="没有匹配的素材" description="调整关键词或左侧分类后再试。" />
                                     ) : (
-                                        <CollectionGrid className="library-grid assets-library-grid" style={{ "--assets-grid-columns": gridDensity } as React.CSSProperties}>
+                                        <CollectionGrid className="library-grid assets-library-grid" style={{ "--collection-grid-min-width": `${assetGridCardMinWidth[gridDensity]}px` } as React.CSSProperties}>
                                             {visibleAssets.map((asset) => (
                                                 <AssetCard
                                                     key={asset.id}
@@ -734,7 +758,7 @@ export default function AssetsPage() {
                                                     retentionDays={retentionDays}
                                                     onSelect={(selected) => setSelectedIds((current) => (selected ? [...new Set([...current, asset.id])] : current.filter((id) => id !== asset.id)))}
                                                     onOpen={() => setPreviewAsset(asset)}
-                                                    onEdit={() => openEdit(asset)}
+                                                    onEdit={() => void openEdit(asset)}
                                                     onCopy={copyAssetText}
                                                     onDownload={downloadImage}
                                                     onRestore={() => void restoreAsset(asset)}
@@ -981,7 +1005,7 @@ export default function AssetsPage() {
                 okButtonProps={{ danger: true }}
                 cancelText="取消"
             >
-                确定彻底删除「{deletingAsset?.title}」吗？未被其他内容引用的服务器本地或对象存储文件也会同步删除，操作不可恢复。
+                确定彻底删除「{deletingAsset?.title}」吗？未被其他素材复用的服务器文件会直接释放，原画布或任务中的旧引用可能失效，操作不可恢复。
             </Modal>
             <Modal
                 className="library-modal library-confirm-modal"
@@ -993,7 +1017,7 @@ export default function AssetsPage() {
                 okButtonProps={{ danger: true }}
                 cancelText="取消"
             >
-                确定彻底删除已选择的 {selectedAssets.length} 个素材吗？未被复用的服务器文件会同步删除，操作不可恢复。
+                确定彻底删除已选择的 {selectedAssets.length} 个素材吗？未被其他素材复用的服务器文件会直接释放，原画布或任务中的旧引用可能失效，操作不可恢复。
             </Modal>
         </>
     );
@@ -1495,8 +1519,7 @@ function assetDownloadLabel(asset: LibraryAsset) {
 
 function readAssetGridDensity(): AssetGridDensity {
     if (typeof window === "undefined") return 8;
-    const value = Number(window.localStorage.getItem(ASSET_GRID_DENSITY_KEY));
-    return value === 6 || value === 10 ? value : 8;
+    return parseAssetGridDensity(window.localStorage.getItem(ASSET_GRID_DENSITY_KEY));
 }
 
 function assetCountMap<T extends { label: string; value: string }>(options: T[], remote: Record<string, number> | undefined, fallback: LibraryAsset[], valueOf: (asset: LibraryAsset) => string) {

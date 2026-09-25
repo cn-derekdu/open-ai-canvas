@@ -6,6 +6,7 @@ type (
 	PaymentOrderQuery                      = app.PaymentOrderQuery
 	PaymentReconciliationQuery             = app.PaymentReconciliationQuery
 	CloudAgentRequest                      = app.CloudAgentRequest
+	CloudAgentRunViewOptions               = app.CloudAgentRunViewOptions
 	CloudAgentMediaSettings                = app.CloudAgentMediaSettings
 	CloudAgentCapabilitySet                = app.CloudAgentCapabilitySet
 	AgentProfileRequest                    = app.AgentProfileRequest
@@ -98,6 +99,7 @@ type (
 	ChannelModelCatalogOptions             = app.ChannelModelCatalogOptions
 	ChannelModelPriceTierRequest           = app.ChannelModelPriceTierRequest
 	ChannelModelRequest                    = app.ChannelModelRequest
+	ChannelModelRepriceRequest             = app.ChannelModelRepriceRequest
 	ChannelModelQuoteRequest               = app.ChannelModelQuoteRequest
 	ChannelModelSortRequest                = app.ChannelModelSortRequest
 	ChannelModelsRequest                   = app.ChannelModelsRequest
@@ -252,7 +254,9 @@ type (
 	ResolveBillingBatchResult              = app.ResolveBillingBatchResult
 	ResolveBillingRequest                  = app.ResolveBillingRequest
 	ResourceDelivery                       = app.ResourceDelivery
-	ResourceDeliveryOptions                = app.ResourceDeliveryOptions
+	ResourceAccessOptions                  = app.ResourceAccessOptions
+	ResourceAccessRequest                  = app.ResourceAccessRequest
+	ResourceAccess                         = app.ResourceAccess
 	ResourceStream                         = app.ResourceStream
 	ResponseInterceptionRule               = app.ResponseInterceptionRule
 	ResponseInterceptionSetting            = app.ResponseInterceptionSetting
@@ -280,10 +284,16 @@ type (
 	SkillPackageBundleFile                 = app.SkillPackageBundleFile
 	SkillPackageFileContent                = app.SkillPackageFileContent
 	SkillPackageFileItem                   = app.SkillPackageFileItem
+	SkillPreset                            = app.SkillPreset
 	SkillShowcaseMedia                     = app.SkillShowcaseMedia
 	StorageMigrationSummary                = app.StorageMigrationSummary
 	StyleProfileFavoriteRequest            = app.StyleProfileFavoriteRequest
 	StyleProfileRequest                    = app.StyleProfileRequest
+	ToolItem                               = app.ToolItem
+	ToolList                               = app.ToolList
+	ToolListRequest                        = app.ToolListRequest
+	ToolMutationRequest                    = app.ToolMutationRequest
+	ToolSummary                            = app.ToolSummary
 	SystemPerformanceCacheGroup            = app.SystemPerformanceCacheGroup
 	SystemPerformanceDisk                  = app.SystemPerformanceDisk
 	SystemPerformanceHost                  = app.SystemPerformanceHost

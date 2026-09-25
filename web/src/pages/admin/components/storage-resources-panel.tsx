@@ -1,4 +1,4 @@
-import { App, Button, Input, Modal, Select } from "antd";
+import { App, Button, Input, Modal } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { Download, Eye, Search, Trash2 } from "lucide-react";
 import { saveAs } from "file-saver";
@@ -9,6 +9,7 @@ import { PaginationBar } from "@/pages/admin/components/admin-ui";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { adminResourceFileUrl, deleteAdminResources, downloadAdminResource, getAdminStorageStats, listAdminResources, type AdminStorageResource, type AdminStorageStats } from "@/services/api/admin-storage";
 import { AdminBatchBar, AdminDataTable, AdminFilterChip, AdminStatTile, AdminStatusBadge, AdminTableEmpty } from "./admin-ui";
+import { Select } from "@/components/ui/base/select";
 
 const pageSizes = [20, 50, 100];
 
@@ -16,7 +17,7 @@ export default function StorageResourcesPanel() {
     const { message, modal } = App.useApp();
     const [searchParams, setSearchParams] = useSearchParams();
     const keyword = searchParams.get("filter") || "";
-    const kind = normalizeOption(searchParams.get("kind"), ["image", "video", "audio", "file"]);
+    const kind = normalizeOption(searchParams.get("kind"), ["image", "video", "audio", "file", "live2d"]);
     const status = normalizeOption(searchParams.get("status"), ["pending", "ready", "failed", "deleted"]);
     const provider = normalizeOption(searchParams.get("provider"), ["local", "aliyun", "tencent", "qiniu", "s3"]);
     const userId = searchParams.get("userId") || "";
@@ -317,6 +318,7 @@ const kindOptions = [
     { label: "视频", value: "video" },
     { label: "音频", value: "audio" },
     { label: "文件", value: "file" },
+    { label: "Live2D 模型", value: "live2d" },
 ];
 const statusOptions = [
     { label: "全部状态", value: "all" },
@@ -349,7 +351,7 @@ function fileName(objectKey: string) {
     return objectKey.split("/").filter(Boolean).at(-1) || "";
 }
 function kindLabel(kind: string) {
-    return ({ image: "图片", video: "视频", audio: "音频", file: "文件" } as Record<string, string>)[kind] || kind || "未知";
+    return ({ image: "图片", video: "视频", audio: "音频", file: "文件", live2d: "Live2D" } as Record<string, string>)[kind] || kind || "未知";
 }
 function statusLabel(status: string) {
     return ({ pending: "待处理", ready: "已就绪", failed: "失败", deleted: "已删除" } as Record<string, string>)[status] || status || "未知";

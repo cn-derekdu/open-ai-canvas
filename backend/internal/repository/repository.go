@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -109,7 +110,7 @@ func (r *Repository) UserStorageUsage(userID string) (UserStorageUsage, error) {
 			(SELECT COUNT(*) FROM canvas_projects WHERE user_id = ?) AS canvas_count,
 			(SELECT COALESCE(SUM(length(CAST(COALESCE(payload_json, '') AS BLOB))), 0) FROM canvas_projects WHERE user_id = ?) AS canvas_bytes,
 			(SELECT COUNT(*) FROM tasks WHERE user_id = ?) AS task_count,
-			(SELECT COALESCE(SUM(length(CAST(COALESCE(prompt, '') AS BLOB)) + length(CAST(COALESCE(input_json, '') AS BLOB)) + length(CAST(COALESCE(result_json, '') AS BLOB)) + length(CAST(COALESCE(text_draft, '') AS BLOB)) + length(CAST(COALESCE(error, '') AS BLOB))), 0) FROM tasks WHERE user_id = ?)
+			(SELECT COALESCE(SUM(length(CAST(COALESCE(prompt, '') AS BLOB)) + length(CAST(COALESCE(input_json, '') AS BLOB)) + length(CAST(COALESCE(result_json, '') AS BLOB)) + length(CAST(COALESCE(media_recovery_json, '') AS BLOB)) + length(CAST(COALESCE(text_draft, '') AS BLOB)) + length(CAST(COALESCE(error, '') AS BLOB))), 0) FROM tasks WHERE user_id = ?)
 			+ (SELECT COALESCE(SUM(length(CAST(COALESCE(message, '') AS BLOB)) + length(CAST(COALESCE(payload, '') AS BLOB))), 0) FROM task_logs WHERE user_id = ?)
 			+ (SELECT COALESCE(SUM(length(CAST(COALESCE(url, '') AS BLOB)) + length(CAST(COALESCE(payload, '') AS BLOB))), 0) FROM results WHERE user_id = ?)
 			+ (SELECT COALESCE(SUM(byte_count), 0) FROM task_text_delta WHERE user_id = ?)
@@ -535,6 +536,12 @@ func (r *Repository) UpdateTaskProviderProgress(id string, progress int) error {
 }
 
 func (r *Repository) SaveTaskCompletion(task *model.Task, expected model.TaskStatus, results []model.Result) error {
+	return r.SaveTaskCompletionWithRegistration(task, expected, results, nil)
+}
+
+// Registration and terminal success commit together; a failed asset write leaves
+// the task recoverable and never exposes a false success to the canvas.
+func (r *Repository) SaveTaskCompletionWithRegistration(task *model.Task, expected model.TaskStatus, results []model.Result, register func(*Repository) error) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		updated := taskLeaseWriter(tx.Model(&model.Task{}), task.LeaseOwner).
 			Where("id = ? AND status = ?", task.ID, expected).
@@ -550,6 +557,9 @@ func (r *Repository) SaveTaskCompletion(task *model.Task, expected model.TaskSta
 				return err
 			}
 		}
+		if register != nil {
+			return register(New(tx))
+		}
 		return nil
 	})
 }
@@ -564,13 +574,49 @@ func (r *Repository) UpdateTaskTerminalState(id string, owner string, expected m
 	return result.RowsAffected == 1, result.Error
 }
 
-func (r *Repository) CancelTaskIfStatus(userID string, id string, expected model.TaskStatus, now time.Time) (bool, error) {
+func (r *Repository) UpdateTaskTerminalDiagnostic(task *model.Task, completedAt time.Time) (bool, error) {
+	result := taskLeaseWriter(r.db.Model(&model.Task{}), task.LeaseOwner).
+		Where("id = ? AND status = ?", task.ID, model.TaskStatusRunning).
+		Updates(map[string]any{
+			"status": task.Status, "stage": task.Stage, "error": task.Error, "completed_at": &completedAt,
+			"execution_diagnostic_json": task.ExecutionDiagnosticJSON,
+			"cancellation_source":       task.CancellationSource, "cancellation_actor_id": task.CancellationActorID,
+			"cancellation_requested_at": task.CancellationRequestedAt,
+			"lease_owner":               "", "lease_expires_at": nil, "updated_at": completedAt,
+		})
+	return result.RowsAffected == 1, result.Error
+}
+
+func (r *Repository) UpdateTaskExecutionDiagnostic(userID, taskID, diagnosticJSON string) error {
+	result := r.db.Model(&model.Task{}).
+		Where("id = ? AND user_id = ?", taskID, userID).
+		Update("execution_diagnostic_json", diagnosticJSON)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *Repository) CancelTaskIfStatus(userID string, id string, expected model.TaskStatus, now time.Time, intents ...model.TaskCancellationIntent) (bool, error) {
+	updates := map[string]any{
+		"status": model.TaskStatusCancelled, "stage": "任务已取消", "error": "任务已取消", "completed_at": &now,
+		"lease_owner": "", "lease_expires_at": nil, "updated_at": now,
+	}
+	if len(intents) > 0 {
+		intent := intents[0]
+		diagnostic, err := json.Marshal(intent.Diagnostic)
+		if err != nil {
+			return false, err
+		}
+		updates["cancellation_source"], updates["cancellation_actor_id"], updates["cancellation_requested_at"] = intent.Source, intent.ActorID, intent.RequestedAt
+		updates["execution_diagnostic_json"] = string(diagnostic)
+	}
 	result := r.db.Model(&model.Task{}).
 		Where("id = ? AND user_id = ? AND status = ?", id, userID, expected).
-		Updates(map[string]any{
-			"status": model.TaskStatusCancelled, "stage": "任务已取消", "error": "任务已取消", "completed_at": &now,
-			"lease_owner": "", "lease_expires_at": nil, "updated_at": now,
-		})
+		Updates(updates)
 	return result.RowsAffected == 1, result.Error
 }
 
@@ -659,7 +705,7 @@ func (r *Repository) Tasks(userID string, limit int, projectID string, activeOnl
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
-	query := r.db.Select("id", "project_id", "type", "status", "stage", "progress", "prompt", "operation", "provider", "model", "input_json", "result_json", "billing_order_id", "provider_request_id", "provider_cancel_status", "provider_cancel_error", "provider_cancel_attempts", "provider_cancel_requested_at", "provider_cancelled_at", "provider_cancel_next_check_at", "attempts", "started_at", "completed_at", "created_at", "updated_at").
+	query := r.db.Select("id", "project_id", "type", "status", "stage", "media_stage", "media_recovery_json", "progress", "prompt", "operation", "provider", "model", "input_json", "result_json", "billing_order_id", "provider_request_id", "provider_cancel_status", "provider_cancel_error", "provider_cancel_attempts", "provider_cancel_requested_at", "provider_cancelled_at", "provider_cancel_next_check_at", "attempts", "started_at", "completed_at", "created_at", "updated_at", "agent_run_id", "generation_id", "approval_id", "authorized_charge_microcredits", "execution_diagnostic_json", "cancellation_source", "cancellation_actor_id", "cancellation_requested_at").
 		Where("user_id = ?", userID)
 	if strings.TrimSpace(projectID) != "" {
 		query = query.Where("project_id = ?", strings.TrimSpace(projectID))
@@ -785,6 +831,17 @@ func (r *Repository) SystemSetting(key string) (*model.SystemSetting, error) {
 	var setting model.SystemSetting
 	if err := r.db.First(&setting, "key = ?", key).Error; err != nil {
 		return nil, err
+	}
+	return &setting, nil
+}
+
+func (r *Repository) SystemSettingOptional(key string) (*model.SystemSetting, error) {
+	var setting model.SystemSetting
+	if err := r.db.Where("key = ?", key).Limit(1).Find(&setting).Error; err != nil {
+		return nil, err
+	}
+	if setting.Key == "" {
+		return nil, nil
 	}
 	return &setting, nil
 }
@@ -1119,7 +1176,7 @@ func (r *Repository) UpsertAsset(asset *model.Asset) error {
 }
 
 func (r *Repository) DeleteAsset(userID string, id string) error {
-	return r.DeleteAssetAndResources(userID, id, nil, nil)
+	return r.DeleteAssetAndResources(userID, id, nil, nil, false)
 }
 
 func (r *Repository) FindExpiredArchivedAssets(cutoff time.Time, limit int) ([]model.Asset, error) {

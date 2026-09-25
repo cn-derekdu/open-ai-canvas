@@ -3275,6 +3275,80 @@
     line-height: 1.5;
 }
 
+/* --- 服务协议条款编辑区 -------------------------------------------------------
+   模板入口与字数提示紧贴正文编辑框：它们是「填写条款」这一步的辅助操作，
+   放回表单内部后与保存行（页脚）在视觉上分离，避免被读成两个并列的主操作。
+
+   内边距：同页其他区块（注册策略、Linux.do）的表单都包在带边框和内边距的
+   子卡片里，本区块的 Form.Item 是裸的，不加 padding 会左右贴死卡片边缘，
+   与区块头（20px）和页脚（14px 20px）对不齐。窄屏 16px，≥1024px 与
+   summary 的 20px 对齐。 */
+.admin-access-agreement-section > .admin-settings-section-content > .ant-form {
+    padding: 14px 16px 8px;
+}
+
+@media (min-width: 1024px) {
+    .admin-access-agreement-section > .admin-settings-section-content > .ant-form {
+        padding: 18px 20px 10px;
+    }
+}
+
+/* 协议名称是短文本，占满 1400px 宽的卡片视觉重心失衡；限宽到表单常用档位。 */
+.admin-access-agreement-title-field {
+    max-width: 480px;
+}
+
+.admin-access-agreement-content-field.ant-form-item {
+    margin-bottom: 10px;
+}
+
+.admin-access-agreement-toolbar {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    margin-bottom: 4px;
+    border: 1px solid var(--admin-card-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--admin-layer-2) 48%, var(--admin-layer-1));
+    padding: 8px 10px;
+}
+
+.admin-access-agreement-template-note {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 7px;
+    color: var(--admin-text-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.admin-access-agreement-template-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.admin-access-agreement-metric {
+    color: var(--admin-text-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+/* 内容为空时字数提示没有信息量，窄屏优先让位给操作按钮。 */
+@media (max-width: 640px) {
+    .admin-access-agreement-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 .admin-access-load-error,
 .admin-access-loading-card {
     min-height: 220px;
@@ -6230,6 +6304,7 @@
 .admin-email-delivery-section,
 .admin-access-registration-section,
 .admin-access-linuxdo-section,
+.admin-access-agreement-section,
 .admin-intercept-policy-section,
 .admin-third-party-credential-section {
     border-color: color-mix(in srgb, var(--foreground) 22%, var(--admin-card-border)) !important;
@@ -6239,17 +6314,18 @@
 .admin-email-delivery-section > .admin-settings-section-summary,
 .admin-access-registration-section > .admin-settings-section-summary,
 .admin-access-linuxdo-section > .admin-settings-section-summary,
+.admin-access-agreement-section > .admin-settings-section-summary,
 .admin-intercept-policy-section > .admin-settings-section-summary,
 .admin-third-party-credential-section > .admin-settings-section-summary {
     background: color-mix(in srgb, var(--foreground) 3%, var(--admin-layer-1));
 }
 
-:is(.admin-storage-mode-section, .admin-email-delivery-section, .admin-access-registration-section, .admin-access-linuxdo-section, .admin-intercept-policy-section, .admin-third-party-credential-section) > .admin-settings-section-summary h2 {
+:is(.admin-storage-mode-section, .admin-email-delivery-section, .admin-access-registration-section, .admin-access-linuxdo-section, .admin-access-agreement-section, .admin-intercept-policy-section, .admin-third-party-credential-section) > .admin-settings-section-summary h2 {
     font-size: 16px;
     letter-spacing: -0.01em;
 }
 
-:is(.admin-storage-mode-section, .admin-email-delivery-section, .admin-access-registration-section, .admin-access-linuxdo-section, .admin-intercept-policy-section, .admin-third-party-credential-section) > .admin-settings-section-summary p {
+:is(.admin-storage-mode-section, .admin-email-delivery-section, .admin-access-registration-section, .admin-access-linuxdo-section, .admin-access-agreement-section, .admin-intercept-policy-section, .admin-third-party-credential-section) > .admin-settings-section-summary p {
     max-width: 760px;
     margin-top: 5px;
     font-size: 12px;
@@ -8485,21 +8561,6 @@
     width: 246px;
 }
 
-.admin-analytics-pricing-modal .admin-analytics-price-field,
-.admin-analytics-pricing-modal .admin-analytics-price-field .ant-form-item-control,
-.admin-analytics-pricing-modal .admin-analytics-price-field .ant-form-item-control-input,
-.admin-analytics-pricing-modal .admin-analytics-price-input,
-.admin-analytics-pricing-modal .admin-analytics-price-input input {
-    width: 100%;
-    min-width: 0;
-    pointer-events: auto;
-    user-select: text;
-}
-
-.admin-analytics-pricing-modal .admin-analytics-price-input {
-    display: block;
-}
-
 .admin-analytics-toolbar .admin-list-toolbar-actions {
     align-items: center;
 }
@@ -8521,19 +8582,27 @@
     line-height: 18px;
 }
 
+.admin-analytics-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
 .admin-analytics-health-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 4px;
+    border-radius: var(--admin-radius-lg);
+    background: var(--admin-layer-1);
 }
 
 .admin-analytics-health-card {
     min-width: 0;
-    min-height: 118px;
-    border: 1px solid var(--admin-card-border);
-    border-radius: 11px;
+    min-height: 104px;
+    border: 0;
+    border-radius: var(--admin-radius-lg);
     background: var(--admin-layer-1);
-    padding: 16px 18px;
+    padding: 12px;
     box-shadow: var(--admin-card-shadow);
 }
 
@@ -8548,12 +8617,12 @@
 
 .admin-analytics-health-card-heading > span:first-child {
     display: grid;
-    width: 28px;
-    height: 28px;
+    width: 18px;
+    height: 18px;
     place-items: center;
-    border: 1px solid var(--admin-divider);
+    border: 0;
     border-radius: 7px;
-    background: var(--admin-layer-2);
+    background: transparent;
     color: var(--admin-text-secondary);
 }
 
@@ -8586,23 +8655,50 @@
     gap: 7px;
     margin-top: 10px;
     color: var(--admin-text-muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 16px;
+}
+
+.admin-analytics-finance-values {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    font-size: 14px;
+    letter-spacing: 0;
+    line-height: 1.4;
+    white-space: normal;
+}
+
+.admin-analytics-finance-values > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+}
+
+.admin-analytics-finance-values dt {
+    color: var(--admin-text-muted);
+    font-weight: 400;
+}
+
+.admin-analytics-finance-values dd {
+    margin: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
 }
 
 .admin-analytics-overview-grid {
     display: grid;
     min-width: 0;
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: 12px;
 }
 
 .admin-analytics-trend-section {
     overflow: hidden;
-    border: 1px solid var(--admin-card-border);
-    border-radius: 12px;
+    border: 0;
+    border-radius: var(--admin-radius-lg);
     background: var(--admin-layer-1);
-    padding: 18px 20px;
+    padding: 12px 16px;
     box-shadow: var(--admin-card-shadow);
 }
 
@@ -8617,9 +8713,9 @@
 }
 
 .admin-analytics-section-heading {
-    margin-bottom: 14px;
-    border-bottom: 1px solid var(--admin-divider);
-    padding-bottom: 13px;
+    margin-bottom: 8px;
+    border-bottom: 0;
+    padding-bottom: 0;
 }
 
 .admin-analytics-section-heading h2,
@@ -8636,17 +8732,17 @@
 .admin-analytics-analysis-heading p {
     margin-top: 4px;
     color: var(--admin-text-muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 17px;
 }
 
 .admin-analytics-chart {
-    height: 280px;
+    height: 208px;
 }
 
 .admin-analytics-empty-chart {
     display: flex;
-    min-height: 220px;
+    min-height: 208px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -8688,24 +8784,24 @@
     display: flex;
     overflow: hidden;
     flex-direction: column;
-    border: 1px solid var(--admin-card-border);
-    border-radius: 12px;
+    border: 0;
+    border-radius: var(--admin-radius-lg);
     background: var(--admin-layer-1);
-    padding: 18px 20px;
+    padding: 12px 16px;
     box-shadow: var(--admin-card-shadow);
 }
 
 .admin-analytics-attention-heading {
-    min-height: 50px;
+    min-height: 44px;
     align-items: flex-start;
-    border-bottom: 1px solid var(--admin-divider);
-    padding-bottom: 13px;
+    border-bottom: 0;
+    padding-bottom: 6px;
 }
 
 .admin-analytics-attention-list {
     display: grid;
     flex: 1 1 auto;
-    grid-template-rows: repeat(3, minmax(76px, 1fr));
+    grid-template-rows: repeat(3, minmax(64px, 1fr));
     margin-top: 2px;
 }
 
@@ -8713,7 +8809,7 @@
     display: grid;
     width: 100%;
     min-width: 0;
-    min-height: 76px;
+    min-height: 64px;
     grid-template-columns: 34px minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
@@ -8782,7 +8878,7 @@
 .admin-analytics-attention-description {
     margin-top: 4px;
     color: var(--admin-text-muted);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .admin-analytics-attention-item strong {
@@ -8793,18 +8889,18 @@
 
 .admin-analytics-analysis-section {
     overflow: hidden;
-    border: 1px solid var(--admin-card-border);
-    border-radius: 12px;
+    border: 0;
+    border-radius: var(--admin-radius-lg);
     background: var(--admin-layer-1);
     box-shadow: var(--admin-card-shadow);
     scroll-margin-top: 16px;
 }
 
 .admin-analytics-analysis-heading {
-    min-height: 72px;
+    min-height: 56px;
     align-items: center;
-    border-bottom: 1px solid var(--admin-divider);
-    padding: 14px 18px;
+    border-bottom: 0;
+    padding: 10px 16px;
 }
 
 .admin-analytics-tabs {
@@ -8822,21 +8918,6 @@
 .admin-analytics-tabs .ant-tabs-tab {
     min-height: 42px;
     padding-block: 10px;
-}
-
-.admin-analytics-pricing-description {
-    margin-bottom: 14px;
-    border: 1px solid var(--admin-divider);
-    border-radius: 8px;
-    background: var(--admin-layer-2);
-    padding: 10px 12px;
-    color: var(--admin-text-secondary);
-    font-size: 11px;
-    line-height: 17px;
-}
-
-.admin-analytics-pricing-drawer .admin-table-frame {
-    min-height: min(620px, calc(100vh - 190px));
 }
 
 @media (min-width: 1280px) {
@@ -9263,11 +9344,31 @@
     }
 }
 
+.admin-price-tier-list-shell {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    gap: 10px;
+}
+
+.admin-price-tier-list {
+    display: grid;
+    min-width: 0;
+    gap: 10px;
+}
+
+.admin-price-tier-list-footer {
+    display: grid;
+    gap: 8px;
+}
+
 .admin-price-tier-card {
+    min-width: 0;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--foreground) 8%, var(--admin-card-border));
     border-radius: 8px;
-    background: color-mix(in srgb, var(--foreground) 2%, var(--admin-layer-1));
+    background: var(--admin-layer-1);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 4%, transparent);
 }
 
 .admin-price-tier-card-header {
@@ -9275,86 +9376,274 @@
     min-width: 0;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    border-bottom: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+    gap: 10px;
+    background: color-mix(in srgb, var(--foreground) 1.5%, var(--admin-layer-1));
     padding: 8px 12px;
+}
+
+.admin-price-tier-card-heading,
+.admin-price-tier-card-actions,
+.admin-price-tier-cost-header,
+.admin-price-tier-cost-title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+}
+
+.admin-price-tier-card-heading {
+    gap: 8px;
+}
+
+.admin-price-tier-card-index {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 0;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--workspace-accent) 10%, var(--admin-layer-2));
+    color: color-mix(in srgb, var(--workspace-accent) 76%, var(--admin-text-primary));
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.admin-price-tier-card-heading-copy {
+    min-width: 0;
+}
+
+.admin-price-tier-card-title {
+    color: var(--admin-text-primary);
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.admin-price-tier-card-summary {
+    overflow: hidden;
+    color: var(--admin-text-muted);
+    font-size: 10px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-price-tier-card-actions {
+    flex: 0 0 auto;
+    gap: 6px;
+}
+
+.admin-price-tier-card-actions > .ant-btn {
+    padding-inline: 5px;
+    font-size: 12px;
 }
 
 .admin-price-tier-card-body {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-    gap: 12px 16px;
-    padding: 12px;
-}
-
-.admin-price-tier-block {
     min-width: 0;
 }
 
-.admin-price-tier-block-title {
-    margin-bottom: 10px;
-    color: color-mix(in srgb, var(--foreground) 48%, transparent);
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-}
-
-.admin-price-tier-block-title > span {
-    margin-right: 5px;
-    color: var(--admin-text-muted);
-}
-
-.admin-price-tier-match-grid {
-    grid-column: 1 / -1;
+.admin-price-tier-mode-row {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    align-items: center;
+    gap: 16px;
+    background: color-mix(in srgb, var(--foreground) 0.8%, transparent);
+    padding: 9px 12px;
 }
 
-.admin-price-tier-upstream {
-    grid-column: span 2;
+.admin-price-tier-mode-row .admin-price-tier-panel-heading {
+    margin-bottom: 0;
 }
 
-.admin-price-tier-billing-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-    gap: 12px;
+.admin-price-tier-mode-row .admin-price-tier-panel-heading > div {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 8px;
 }
 
-.admin-price-tier-token-grid {
-    grid-column: 1 / -1;
+.admin-price-tier-mode-row .admin-price-tier-panel-heading p {
+    margin-top: 0;
 }
 
-.admin-price-tier-token-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+.admin-price-tier-mode-control {
+    min-width: 0;
 }
 
-.admin-price-tier-billing-mode .ant-segmented {
-    border: 1px solid var(--admin-card-border);
+.admin-price-tier-mode-control .ant-segmented {
+    width: 100%;
+    border: 0;
     background: var(--admin-layer-2);
     padding: 2px;
 }
 
-.admin-price-tier-billing-mode .ant-segmented-item {
-    min-height: 28px;
-    border-radius: 5px;
+.admin-price-tier-workspace {
+    display: grid;
+    min-width: 0;
+    align-items: start;
+    gap: 12px;
+    padding: 10px 12px 12px;
 }
 
-.admin-price-tier-billing-mode .ant-segmented-item-label {
-    min-height: 28px;
-    padding-inline: 12px;
-    line-height: 28px;
+.admin-price-tier-workspace.is-advanced {
+    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.6fr);
 }
 
-.admin-price-tier-billing-mode .ant-segmented-item-selected {
-    background: var(--admin-layer-1);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--foreground) 14%, transparent);
+.admin-price-tier-workspace.is-default {
+    grid-template-columns: minmax(0, 1fr);
 }
 
-.admin-price-tier-unit-price .ant-input-number {
+.admin-price-tier-panel {
+    min-width: 0;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--foreground) 1.8%, var(--admin-layer-2));
+    padding: 11px 12px 12px;
+}
+
+.admin-price-tier-panel-heading {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.admin-price-tier-panel-heading > div,
+.admin-price-tier-cost-heading {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 9px;
+}
+
+.admin-price-tier-panel-heading h3,
+.admin-price-tier-cost-title {
+    margin: 0;
+    color: var(--admin-text-primary);
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.admin-price-tier-panel-heading p,
+.admin-price-tier-cost-heading p {
+    margin: 0;
+    color: var(--admin-text-muted);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.admin-price-tier-match-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 8px 10px;
+}
+
+.admin-price-tier-upstream {
+    grid-column: 1 / -1;
+}
+
+.admin-price-tier-billing-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(190px, 0.85fr);
+    align-items: start;
+    gap: 10px;
+}
+
+.admin-price-tier-token-grid {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.admin-price-tier-cost-panel {
+    min-width: 0;
+    margin-top: 10px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--foreground) 2.2%, transparent);
+    padding: 9px 10px 10px;
+}
+
+.admin-price-tier-cost-header {
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.admin-price-tier-cost-heading {
+    min-width: 0;
+}
+
+.admin-price-tier-cost-title {
+    gap: 8px;
+}
+
+.admin-price-tier-cost-badge {
+    border: 1px solid color-mix(in srgb, var(--workspace-accent) 24%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--workspace-accent) 8%, transparent);
+    padding: 2px 7px;
+    color: color-mix(in srgb, var(--workspace-accent) 72%, var(--admin-text-primary));
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.admin-price-tier-cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    align-items: start;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.admin-price-tier-cost-token-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-price-tier-cost-switch {
+    flex: 0 0 auto;
+}
+
+.admin-price-tier-alert {
+    margin: 0 16px 16px;
+}
+
+.admin-price-tier-helper {
+    display: flex;
+    max-width: none;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    margin-top: 8px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--workspace-accent) 3.5%, transparent);
+    padding: 6px 8px;
+    color: var(--admin-text-muted);
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.admin-price-tier-helper strong {
+    color: var(--admin-text-secondary);
+    flex: 0 0 auto;
+    font-size: 10px;
+    font-weight: 650;
+}
+
+.admin-price-tier-helper span {
+    min-width: 240px;
+    flex: 1 1 520px;
+}
+
+.admin-price-tier-unit-price .ant-input-number,
+.admin-price-tier-cost-grid .ant-input-number {
     width: 100% !important;
 }
 
@@ -9366,20 +9655,50 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    gap: 7px;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--foreground) 3%, transparent);
+    padding: 3px 6px 3px 8px;
 }
 
 .admin-price-tier-toggle span {
     overflow-wrap: anywhere;
     color: var(--admin-text-muted);
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.4;
     white-space: normal;
 }
 
 .admin-model-editor-add-tier.ant-btn {
     min-height: 38px;
+    border-color: color-mix(in srgb, var(--workspace-accent) 28%, var(--admin-card-border));
+    background: color-mix(in srgb, var(--workspace-accent) 4%, transparent);
+}
+
+.admin-price-tier-billing-mode .ant-segmented {
+    border: 0;
+    background: var(--admin-layer-2);
+    padding: 2px;
+}
+
+.admin-price-tier-mode-control .ant-segmented-item,
+.admin-price-tier-billing-mode .ant-segmented-item {
+    min-height: 28px;
+    border-radius: 5px;
+}
+
+.admin-price-tier-mode-control .ant-segmented-item-label,
+.admin-price-tier-billing-mode .ant-segmented-item-label {
+    min-height: 28px;
+    padding-inline: 12px;
+    line-height: 28px;
+}
+
+.admin-price-tier-mode-control .ant-segmented-item-selected,
+.admin-price-tier-billing-mode .ant-segmented-item-selected {
+    background: var(--admin-layer-1);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 7%, transparent);
 }
 
 .admin-model-editor-footer-actions {
@@ -9441,14 +9760,19 @@
 :root:not(.dark) .admin-model-editor-drawer .admin-capability-reference-card,
 :root:not(.dark) .admin-model-editor-drawer .admin-capability-protocol-card,
 :root:not(.dark) .admin-price-tier-toggle,
+:root:not(.dark) .admin-price-tier-mode-control .ant-segmented,
 :root:not(.dark) .admin-price-tier-billing-mode .ant-segmented {
     border-color: rgba(17, 17, 17, 0.18);
     background: #ffffff;
 }
 
 :root:not(.dark) .admin-price-tier-card {
-    border-color: rgba(17, 17, 17, 0.18);
-    background: #f7f7f7;
+    border-color: rgba(17, 17, 17, 0.1);
+    background: #ffffff;
+}
+
+:root:not(.dark) .admin-price-tier-panel {
+    background: #f8f8f8;
 }
 
 :root:not(.dark) .admin-model-editor-drawer .admin-capability-reference-card,
@@ -9492,10 +9816,12 @@
     box-shadow: 0 6px 20px rgb(17 17 17 / 0.08);
 }
 
+:root:not(.dark) .admin-price-tier-mode-control .ant-segmented-item-selected,
 :root:not(.dark) .admin-price-tier-billing-mode .ant-segmented-item-selected {
     background: #ececec;
-    box-shadow: inset 0 0 0 1px rgb(17 17 17 / 0.12);
+    box-shadow: 0 1px 2px rgb(17 17 17 / 0.08);
 }
+
 @media (max-width: 600px) {
     .admin-model-editor-modal .ant-modal-container {
         height: calc(100dvh - 24px);
@@ -9513,6 +9839,23 @@
     .admin-model-editor-modal .admin-capability-protocol-grid {
         grid-template-columns: minmax(0, 1fr);
     }
+    .admin-price-tier-card-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .admin-price-tier-card-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .admin-price-tier-mode-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 7px;
+        padding: 9px 10px;
+    }
+    .admin-price-tier-workspace {
+        padding: 10px;
+    }
     .admin-price-tier-upstream {
         grid-column: 1 / -1;
     }
@@ -9520,14 +9863,15 @@
     .admin-model-protocol-grid,
     .admin-price-tier-billing-grid,
     .admin-price-tier-match-grid,
-    .admin-price-tier-token-grid {
+    .admin-price-tier-token-grid,
+    .admin-price-tier-cost-token-grid {
         grid-template-columns: minmax(0, 1fr);
     }
 }
 
 @media (max-width: 899px) {
     .admin-model-editor-section,
-    .admin-price-tier-card-body {
+    .admin-price-tier-workspace.is-advanced {
         grid-template-columns: minmax(0, 1fr);
     }
 }
@@ -9838,7 +10182,7 @@
     }
 
     .admin-analytics-trend-section {
-        padding: 22px 24px 18px;
+        padding: 12px 16px;
     }
 
     .admin-settings-section:not(.is-stacked) {
@@ -9879,7 +10223,7 @@
 
 @media (min-width: 1200px) {
     .admin-analytics-health-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 }
 
@@ -10457,11 +10801,11 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
     gap: 12px;
     min-height: 34px;
     padding: 6px 10px;
-    border: 1px solid var(--admin-divider);
+    border: 0;
     border-radius: 8px;
     background: var(--admin-layer-2);
     color: var(--admin-text-muted);
-    font-size: 11px;
+    font-size: 12px;
 }
 
 .admin-performance-statusbar > div {
@@ -10473,7 +10817,7 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     overflow: hidden;
-    border: 1px solid var(--admin-card-border);
+    border: 0;
     border-radius: 10px;
     background: var(--admin-layer-1);
     box-shadow: var(--admin-card-shadow);
@@ -10485,7 +10829,7 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
 }
 
 .admin-performance-kpi + .admin-performance-kpi {
-    border-left: 1px solid var(--admin-divider);
+    border-left: 0;
 }
 
 .admin-performance-kpi-heading {
@@ -10512,7 +10856,7 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
 }
 
 .admin-performance-kpi-heading p {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
 }
 
@@ -10528,7 +10872,7 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
 .admin-performance-kpi > p {
     margin-top: 3px;
     color: var(--admin-text-muted);
-    font-size: 10px;
+    font-size: 12px;
 }
 
 .admin-performance-kpi .ant-progress {
@@ -10567,9 +10911,9 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
 .admin-performance-facts dd {
     min-width: 0;
     margin: 0;
-    padding: 8px 14px;
+    padding: 6px 14px;
     border-top: 1px solid var(--admin-row-border);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
 }
 
@@ -10840,7 +11184,6 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
     line-height: 1;
 }
 
-
 .admin-banner-icon-picker-option.is-active {
     border-color: color-mix(in srgb, var(--foreground) 22%, transparent);
     background: var(--control-selected-bg);
@@ -10942,4 +11285,38 @@ html[data-magicui-theme-vt="active"] .admin-shell * {
 
 .admin-banner-type-card[data-banner-type="warning"] .admin-banner-type-card-preview {
     background: var(--notice-banner-surface-warning);
+}
+
+/* 模型定价编辑器：弹窗内只保留一个滚动区域。 */
+.admin-model-editor-modal .ant-modal-body {
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.admin-model-editor-modal .admin-model-editor-form {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.admin-model-editor-modal .admin-model-editor-form > .ant-tabs {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.admin-model-editor-modal .admin-model-editor-form > .ant-tabs > .ant-tabs-body-holder {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+.admin-model-editor-modal .admin-model-editor-form > .ant-tabs > .ant-tabs-body-holder > .ant-tabs-content,
+.admin-model-editor-modal .admin-model-editor-form > .ant-tabs > .ant-tabs-body-holder > .ant-tabs-content > .ant-tabs-tabpane {
+    min-height: 100%;
 }

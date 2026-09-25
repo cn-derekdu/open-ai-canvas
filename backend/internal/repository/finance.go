@@ -23,6 +23,7 @@ var (
 	ErrTaskNotRetryable        = errors.New("task is not retryable")
 	ErrBillingStateConflict    = errors.New("billing state conflict")
 	ErrBillingUsageUnavailable = errors.New("billing usage unavailable")
+	ErrBillingChargeLimit      = errors.New("billing amount exceeds authorized charge limit")
 	ErrChannelModelInUse       = errors.New("channel model is in use")
 )
 
@@ -83,6 +84,20 @@ func (r *Repository) ChannelModels(channelID string, includeDisabled bool) ([]mo
 		pointers[index] = &items[index]
 	}
 	return items, r.attachChannelModelPriceTiers(pointers)
+}
+
+func (r *Repository) ChannelModelReferences(channelIDs []string) ([]model.ChannelModel, error) {
+	if len(channelIDs) == 0 {
+		return []model.ChannelModel{}, nil
+	}
+	var items []model.ChannelModel
+	if err := r.db.Select("id", "channel_id", "model_key", "display_name", "sort_order", "enabled").
+		Where("channel_id IN ?", channelIDs).
+		Order("channel_id asc, sort_order asc, created_at asc, id asc").
+		Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (r *Repository) CreateDuplicatedSystemChannel(channel *model.ModelChannel, channelModels []model.ChannelModel, priceTiers []model.ChannelModelPriceTier) error {
@@ -463,6 +478,7 @@ func (r *Repository) RetryTaskWithBilling(userID string, prepared *model.Task, o
 		}
 		updates := map[string]any{
 			"status": model.TaskStatusQueued, "stage": "等待队列调度", "progress": 5, "error": "", "result_json": "",
+			"execution_diagnostic_json": "", "cancellation_source": "", "cancellation_actor_id": "", "cancellation_requested_at": nil,
 			"text_draft": "", "started_at": nil, "completed_at": nil,
 			"provider_request_id": "", "poll_stage": "", "next_poll_at": nil,
 			"provider_cancel_status": "", "provider_cancel_error": "", "provider_cancel_attempts": 0,
@@ -514,6 +530,9 @@ func (r *Repository) ReserveBillingOrder(order *model.BillingOrder) error {
 }
 
 func reserveBillingOrder(tx *gorm.DB, order *model.BillingOrder) error {
+	if err := validateBillingChargeLimit(*order, order.AmountMicrocredits); err != nil {
+		return err
+	}
 	if order.ReservedAmountMicrocredits <= 0 {
 		order.ReservedAmountMicrocredits = order.AmountMicrocredits
 	}
@@ -743,6 +762,11 @@ func (r *Repository) SettleBillingOrder(id string, providerRequestID string) err
 		if order.Status == model.BillingStatusRefunded {
 			return errors.New("billing order already refunded")
 		}
+		if order.BillingMode != "token" {
+			if err := validateBillingChargeLimit(order, order.AmountMicrocredits); err != nil {
+				return err
+			}
+		}
 		if order.BillingMode == "token" && !zeroPricedTokenOrder(order) {
 			usage, usageSource, err := tokenSettlementUsage(tx, order)
 			if err != nil {
@@ -758,7 +782,7 @@ func (r *Repository) SettleBillingOrder(id string, providerRequestID string) err
 			if err != nil {
 				return err
 			}
-			chargeCapped := order.ChargeLimitMicrocredits > 0 && actual > order.ChargeLimitMicrocredits
+			chargeCapped := billingChargeLimitApplies(order) && actual > order.ChargeLimitMicrocredits
 			if chargeCapped {
 				actual = order.ChargeLimitMicrocredits
 			}
@@ -900,6 +924,11 @@ func (r *Repository) RestoreRefundedBillingOrder(id string, providerRequestID st
 		if order.Status != model.BillingStatusRefunded {
 			return ErrBillingStateConflict
 		}
+		if order.BillingMode != "token" {
+			if err := validateBillingChargeLimit(order, order.AmountMicrocredits); err != nil {
+				return err
+			}
+		}
 
 		actual := order.AmountMicrocredits
 		var usage *BillingUsage
@@ -919,7 +948,7 @@ func (r *Repository) RestoreRefundedBillingOrder(id string, providerRequestID st
 				}
 			}
 		}
-		chargeCapped := order.BillingMode == "token" && order.ChargeLimitMicrocredits > 0 && actual > order.ChargeLimitMicrocredits
+		chargeCapped := billingChargeLimitApplies(order) && actual > order.ChargeLimitMicrocredits
 		if chargeCapped {
 			actual = order.ChargeLimitMicrocredits
 		}

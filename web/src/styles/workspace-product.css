@@ -207,11 +207,24 @@
         box-shadow: none !important;
     }
     .app-user-workspace .collection-toolbar .ant-input-affix-wrapper svg { width: var(--user-icon-size); height: var(--user-icon-size); color: var(--user-ink-soft); }
+
+    /* Select 的只读 input 在鼠标点击后也可能匹配 :focus-visible；
+       用工具栏的实际输入方式区分，不通过 blur 破坏下拉键盘操作。 */
+    .app-user-workspace .collection-toolbar .ant-select {
+        outline: none !important;
+    }
+    .app-user-workspace .collection-toolbar .ant-select:not(.ant-select-disabled):is(:hover, .ant-select-focused, .ant-select-open) {
+        background: var(--user-surface-hover) !important;
+    }
+    .app-user-workspace .collection-toolbar[data-input-modality="keyboard"] .ant-select:not(.ant-select-disabled):focus-within {
+        outline: 1px solid var(--control-focus-ring) !important;
+        outline-offset: 2px;
+    }
 }
 
 @media (max-width: 720px) {
     .app-product-workspace .library-page > div { width: calc(100% - 32px); }
-    .app-product-workspace .assets-library-page .assets-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+    .app-product-workspace .assets-library-page .assets-library-grid { gap: var(--space-3); }
     .app-product-workspace .app-pagination-bar { flex-wrap: wrap; gap: var(--space-2); padding-inline: 0; }
     .app-product-workspace .app-pagination-pages { justify-content: center; flex: 1 1 100%; }
     .app-user-workspace .studio-collection-page > div { width: calc(100% - 32px); padding-top: 20px; }
@@ -355,7 +368,7 @@
 .app-product-workspace .skill-library-grid,
 .app-product-workspace .plugins-grid,
 .app-product-workspace .task-grid-view {
-    grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--collection-grid-min-width, 224px)), 1fr));
     gap: 24px 16px;
 }
 
@@ -575,7 +588,6 @@
 .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-two-pane { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; min-height: 0; align-items: start; }
 .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-brand-rail { display: grid; align-content: start; gap: 5px; border-right: 1px solid var(--workspace-border); padding-right: 14px; }
 .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-brand { width: 100%; }
-.creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-brand.is-active { border-color: var(--workspace-border); background: var(--workspace-surface-hover); }
 .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-model-pane { border: 0; margin: 0; padding: 0; }
 
 @media (max-width: 720px) { .creation-floating-prompt { top: 8px; width: calc(100% - 24px); min-height: 60px; gap: 10px; padding: 8px 9px 8px 16px; border-radius: 19px; } .creation-floating-prompt input { font-size: 14px; } .creation-floating-prompt button { width: 40px; height: 40px; flex-basis: 40px; } .creation-model-picker-surface .creation-model-picker-menu:is(.is-brand-list, .is-model-list) { width: calc(100vw - 24px) !important; } .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-two-pane { grid-template-columns: minmax(0, 1fr); min-height: 0; } .creation-model-picker-surface .creation-model-picker-menu.is-model-list .canvas-model-picker-brand-rail { display: none; } .app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-tabs { height: 30px; } .app-user-workspace .creation-chat-composer.is-thread .creation-chat-dock .creation-mode-button { height: 26px; min-height: 26px; padding: 0 6px; font-size: 10px; } }
@@ -668,7 +680,7 @@
     .app-product-workspace .collection-toolbar-controls { flex-basis: 100%; }
     .app-product-workspace .collection-toolbar-actions { width: 100%; justify-content: flex-start; }
     .app-product-workspace .canvas-collection-grid,
-    .app-product-workspace .assets-library-grid,
+    .app-product-workspace .assets-library-grid:not(.assets-library-page .assets-library-grid),
     .app-product-workspace .task-grid-view { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }
     .app-product-workspace .plugins-grid { grid-template-columns: minmax(0, 1fr); }
     .app-product-workspace .story-launcher-panel { padding: 16px; border-radius: 16px; }
@@ -691,6 +703,11 @@
     padding: 20px 24px 16px;
     border-bottom: 1px solid var(--user-border);
     background: var(--user-surface);
+}
+
+/* 内容区自带内边距（.app-changelog-scroll），弹窗 body 不再叠加，保持产品壳层拥有间距。 */
+.app-changelog-modal .ant-modal-body {
+    padding: 0;
 }
 
 .app-changelog-heading {

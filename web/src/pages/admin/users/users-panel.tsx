@@ -1,4 +1,4 @@
-import { App, Button, Dropdown, Input, Select } from "antd";
+import { App, Button, Dropdown, Input } from "antd";
 import { Checkbox } from "@/pages/admin/ui/controls";
 import { Ban, Search, Settings2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,6 +12,7 @@ import { useTableUrlState } from "../lib/use-table-url-state";
 import { AdminUserDetailDrawer } from "../components/admin-user-detail-drawer";
 import { createUserColumns, userColumnOptions, type UserColumnKey } from "./users-columns";
 import { AdminUserCreateDrawer, AdminUserEditDrawer } from "./users-drawer";
+import { Select } from "@/components/ui/base/select";
 
 const columnStorageKey = "admin-users-visible-columns";
 const allColumnKeys = userColumnOptions.map((item) => item.key);
@@ -24,6 +25,8 @@ export default function UsersPanel({ onUserChanged }: { onUserChanged?: (user: L
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+    const [retry, setRetry] = useState(0);
     const [detailUserId, setDetailUserId] = useState<string | null>(null);
     const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
     const [createUserOpen, setCreateUserOpen] = useState(false);
@@ -52,6 +55,9 @@ export default function UsersPanel({ onUserChanged }: { onUserChanged?: (user: L
     useEffect(() => {
         const sequence = ++requestSequence.current;
         setLoading(true);
+        setLoadError("");
+        setUsers([]);
+        setTotal(0);
         void listAdminUsers({
             keyword: debouncedFilter || undefined,
             role: state.role === "all" ? undefined : state.role,
@@ -67,12 +73,15 @@ export default function UsersPanel({ onUserChanged }: { onUserChanged?: (user: L
                 if (result.total > 0 && result.users.length === 0 && state.page > 1) update({ page: 1 }, true);
             })
             .catch((error) => {
-                if (sequence === requestSequence.current) message.error(error instanceof Error ? error.message : "读取用户失败");
+                if (sequence !== requestSequence.current) return;
+                const text = error instanceof Error ? error.message : "读取用户失败";
+                setLoadError(text);
+                message.error(text);
             })
             .finally(() => {
                 if (sequence === requestSequence.current) setLoading(false);
             });
-    }, [debouncedFilter, message, state.page, state.pageSize, state.role, state.status, update]);
+    }, [debouncedFilter, message, retry, state.page, state.pageSize, state.role, state.status, update]);
 
     const replaceUser = useCallback((nextUser: LocalUser) => {
         setUsers((items) => items.map((item) => item.id === nextUser.id ? { ...item, ...nextUser } : item));
@@ -207,7 +216,7 @@ export default function UsersPanel({ onUserChanged }: { onUserChanged?: (user: L
                 batchActions={<AdminBatchBar count={selectedUserIds.length} onClear={() => setSelectedUserIds([])}><Button danger size="small" icon={<Ban className="size-3.5" />} loading={bulkDisabling} onClick={bulkDisable}>批量停用</Button></AdminBatchBar>}
                 skeletonColumns={Math.max(4, columns.length)}
                 table={{
-                    className: "app-data-table",
+                    className: "app-data-table admin-users-table",
                     size: "small",
                     rowKey: "id",
                     loading,
@@ -222,7 +231,7 @@ export default function UsersPanel({ onUserChanged }: { onUserChanged?: (user: L
                     pagination: false,
                     scroll: { x: 860 },
                 }}
-                empty={<AdminTableEmpty filtered={hasFilters} />}
+                empty={loadError ? <div className="admin-inline-load-error" role="status"><span>用户数据暂不可用：{loadError}</span><Button size="small" onClick={() => setRetry((value) => value + 1)}>重试</Button></div> : <AdminTableEmpty filtered={hasFilters} />}
                 footer={<PaginationBar alwaysShow current={state.page} pageSize={state.pageSize} total={total} onChange={(page, pageSize) => update({ page: pageSize !== state.pageSize ? 1 : page, pageSize })} />}
             />
 

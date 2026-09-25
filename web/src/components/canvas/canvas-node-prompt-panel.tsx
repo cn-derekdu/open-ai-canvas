@@ -1,11 +1,12 @@
 import { Button, Image as AntImage, InputNumber, Modal, Popover } from "antd";
 import { Tooltip } from "@/components/ui/base/tooltip";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { ArrowLeftRight, ArrowUp, AtSign, Boxes, Camera, ChevronDown, FileText, GripVertical, ImageIcon, ImagePlus, Link2, LoaderCircle, Maximize2, Music2, Pencil, SlidersHorizontal, UserRound, Video, WandSparkles, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { ArrowLeftRight, ArrowUp, AtSign, Boxes, ChevronDown, FileText, GripVertical, ImageIcon, ImagePlus, LayoutList, Link2, LoaderCircle, Maximize2, Music2, Pencil, SlidersHorizontal, UserRound, Video, WandSparkles, X } from "lucide-react";
 
 import { ModelPicker } from "@/components/model-picker";
 import { defaultConfig, modelOptionName, resolveModelChannel, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { resolveCanvasGenerationModel } from "@/lib/canvas/canvas-project-generation";
+import { canonicalGenerationMetadata } from "@/lib/canvas/generation-contract";
 import { clampPromptEditorModalSize, PROMPT_EDITOR_VIEWPORT_MARGIN } from "@/lib/canvas/canvas-prompt-editor-size";
 import { CreditSymbol, requestCreditCost } from "@/constant/credits";
 import { canvasThemes } from "@/lib/canvas-theme";
@@ -22,10 +23,14 @@ import { CanvasResourceMentionTextarea } from "./canvas-resource-mention-textare
 import { CanvasVideoSettingsPopover } from "./canvas-video-settings-popover";
 import { CanvasVideoPromptTools } from "./canvas-video-prompt-tools";
 import { CanvasPresetPicker, type CanvasPromptPreset } from "./canvas-preset-picker";
+import { CanvasNineGridPicker } from "./canvas-nine-grid-picker";
+import { CanvasChooseImageStylePicker } from "./canvas-choose-image-style-picker";
+import { CanvasChooseEffectPicker } from "./canvas-choose-effect-picker";
+import { CanvasChooseMotionPicker } from "./canvas-choose-motion-picker";
 import { CanvasPortraitTexturePopover } from "./canvas-portrait-texture-popover";
 import { CanvasPromptOptimizerDrawer } from "./canvas-prompt-optimizer-drawer";
 import { CanvasNodeType, type CanvasGenerationMode, type CanvasNodeData, type CanvasNodeMetadata, type CanvasWorkspaceMode } from "@/types/canvas";
-import { autoMentionCanvasResourceReferences, canvasResourceMentionToken, normalizeCanvasNodeMentionTokens, type CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
+import { applyToolMention, removeToolMentions, autoMentionCanvasResourceReferences, buildToolMentionReference, canvasResourceMentionToken, normalizeCanvasNodeMentionTokens, overwriteSameTypeToolMention, parseToolMentionTokens, type CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { promptOptimizerPlugin, PROMPT_OPTIMIZER_PLUGIN_ID } from "@/lib/plugins/builtin/prompt-optimizer";
 import { createPluginHostContext } from "@/services/plugin-host";
 import { usePluginStore } from "@/stores/use-plugin-store";
@@ -51,6 +56,7 @@ type CanvasNodePromptPanelProps = {
     onNodeMouseDown?: (event: ReactPointerEvent, nodeId: string) => void;
     onImageSettingsOpenChange?: (open: boolean) => void;
     workspaceMode?: CanvasWorkspaceMode;
+    onListGenerate?: (nodeId: string, prompt: string) => void;
 };
 
 type CanvasTheme = (typeof canvasThemes)[keyof typeof canvasThemes];
@@ -69,7 +75,7 @@ const PROMPT_EDITOR_MODAL_WIDTH = "min(1200px, 92vw)";
 const PROMPT_EDITOR_MODAL_DEFAULT_WIDTH = 1200;
 const PROMPT_EDITOR_MODAL_DEFAULT_HEIGHT = 420;
 
-export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChange, onConfigChange, onGenerate, mentionReferences = [], onAddReference, onRemoveReference, onReorderReferences, onReplaceReference, onReplaceReferenceFiles, onClose, onNodeMouseDown, onImageSettingsOpenChange, workspaceMode = "professional" }: CanvasNodePromptPanelProps) {
+export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChange, onConfigChange, onGenerate, mentionReferences = [], onAddReference, onRemoveReference, onReorderReferences, onReplaceReference, onReplaceReferenceFiles, onClose, onNodeMouseDown, onImageSettingsOpenChange, workspaceMode = "professional", onListGenerate }: CanvasNodePromptPanelProps) {
     const globalConfig = useEffectiveConfig();
     const themeName = useActiveTheme();
     const theme = canvasThemes[themeName];
@@ -78,12 +84,23 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const promptOptimizerEnabled = usePluginStore((state) => state.pluginStates[PROMPT_OPTIMIZER_PLUGIN_ID]?.effectiveEnabled ?? Boolean(state.installations.find((item) => item.manifest.id === PROMPT_OPTIMIZER_PLUGIN_ID)?.enabled));
     const simpleMode = workspaceMode === "simple";
     const mode = defaultMode(node.type);
+    const showPromptTemplates = !simpleMode && mode !== "image";
+    node = { ...node, metadata: canonicalGenerationMetadata(node, mode) };
     const hasTextContent = node.type === CanvasNodeType.Text && Boolean(node.metadata?.content?.trim());
     const hasImageContent = node.type === CanvasNodeType.Image && Boolean(node.metadata?.content);
     const savedPrompt = node.metadata?.composerContent ?? node.metadata?.prompt ?? "";
     const [prompt, setPrompt] = useState(savedPrompt);
+    const promptRef = useRef(savedPrompt);
     const [presetOpen, setPresetOpen] = useState(false);
     const [expandedPresetOpen, setExpandedPresetOpen] = useState(false);
+    const [nineGridOpen, setNineGridOpen] = useState(false);
+    const [expandedNineGridOpen, setExpandedNineGridOpen] = useState(false);
+    const [styleToolOpen, setStyleToolOpen] = useState(false);
+    const [expandedStyleToolOpen, setExpandedStyleToolOpen] = useState(false);
+    const [effectToolOpen, setEffectToolOpen] = useState(false);
+    const [expandedEffectToolOpen, setExpandedEffectToolOpen] = useState(false);
+    const [motionToolOpen, setMotionToolOpen] = useState(false);
+    const [expandedMotionToolOpen, setExpandedMotionToolOpen] = useState(false);
     const [expandedPromptOpen, setExpandedPromptOpen] = useState(false);
     const [expandedModalSize, setExpandedModalSize] = useState<{ width: number; height: number } | null>(null);
     const expandedModalRef = useRef<HTMLDivElement>(null);
@@ -94,8 +111,22 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const [promptOptimizerOpen, setPromptOptimizerOpen] = useState(false);
     const [autoLinkEnabled, setAutoLinkEnabled] = useState(true);
     const resolvedMentionReferences = useResolvedCanvasResourceReferences(mentionReferences, { projectId });
+    const promptToolReferences = useMemo(() => parseToolMentionTokens(prompt).map(({toolId, label, type, icon}) => buildToolMentionReference(toolId, label, type, icon)), [prompt]);
+    const textareaReferences = useMemo(() => {
+        if (!promptToolReferences.length) return resolvedMentionReferences;
+        const existingIds = new Set(resolvedMentionReferences.map((r) => r.id));
+        const extras = promptToolReferences.filter((r) => !existingIds.has(r.id));
+        return extras.length ? [...resolvedMentionReferences, ...extras] : resolvedMentionReferences;
+    }, [resolvedMentionReferences, promptToolReferences]);
+    // 当前提示词持有的九宫格工具图标，用于触发按钮回显已选工具。
+    const activeNineGridIcon = useMemo(() => parseToolMentionTokens(prompt).find((tool) => tool.type === "nine_grid")?.icon ?? "Grid3x3", [prompt]);
+    const activeStyleTool = parseToolMentionTokens(prompt).find(t => t.type === "style");
+    const activeEffectTool = parseToolMentionTokens(prompt).find(t => t.type === "effect");
+    // 当前提示词持有的运镜工具标签（可多个），用于运镜按钮回显与菜单高亮。
+    const activeMotionTools = useMemo(() => parseToolMentionTokens(prompt).filter((tool) => tool.type === "motion"), [prompt]);
+    const activeMotionTool = activeMotionTools[0];
     const normalizedSavedPrompt = useMemo(() => normalizeCanvasNodeMentionTokens(savedPrompt, mentionReferences), [mentionReferences, savedPrompt]);
-    const activeReferences = resolvedMentionReferences.filter((item) => item.active && item.kind !== "skill");
+    const activeReferences = resolvedMentionReferences.filter((item) => item.active && item.kind !== "skill" && item.kind !== "tool");
     const requirements: ModelRequirements = {
         capability: mode,
         input: {
@@ -106,17 +137,17 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
             characterCount: activeReferences.filter((item) => item.kind === "character").length,
         },
         videoOperation: node.metadata?.videoEditOperation,
-        videoSeconds: mode === "video" ? node.metadata?.seconds || globalConfig.videoSeconds : undefined,
+        videoSeconds: mode === "video" ? node.metadata?.seconds ?? globalConfig.videoSeconds : undefined,
         options: modelRequestOptions({
             ...globalConfig,
             size: node.metadata?.size || globalConfig.size,
             quality: node.metadata?.quality || globalConfig.quality,
             count: String(node.metadata?.count || globalConfig.count),
             transparentBackground: node.metadata?.transparentBackground || globalConfig.transparentBackground,
-            videoSeconds: node.metadata?.seconds || globalConfig.videoSeconds,
+            videoSeconds: node.metadata?.seconds ?? globalConfig.videoSeconds,
             vquality: node.metadata?.vquality || globalConfig.vquality,
-            videoGenerateAudio: node.metadata?.generateAudio || globalConfig.videoGenerateAudio,
-            videoWatermark: node.metadata?.watermark || globalConfig.videoWatermark,
+            videoGenerateAudio: node.metadata?.generateAudio ?? globalConfig.videoGenerateAudio,
+            videoWatermark: node.metadata?.watermark ?? globalConfig.videoWatermark,
             audioVoice: node.metadata?.audioVoice || globalConfig.audioVoice,
             audioFormat: node.metadata?.audioFormat || globalConfig.audioFormat,
             audioSpeed: node.metadata?.audioSpeed || globalConfig.audioSpeed,
@@ -183,6 +214,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const canAutoMention = autoMentionedPrompt !== prompt;
 
     useEffect(() => {
+        promptRef.current = normalizedSavedPrompt;
         setPrompt(normalizedSavedPrompt);
         if (normalizedSavedPrompt !== savedPrompt) onPromptChange(node.id, normalizedSavedPrompt);
     }, [node.id, normalizedSavedPrompt, onPromptChange, savedPrompt]);
@@ -228,12 +260,17 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const skillReferences = useMemo(() => resolvedMentionReferences.filter((item) => item.kind === "skill"), [resolvedMentionReferences]);
 
     const updatePrompt = (value: string) => {
+        promptRef.current = value;
         setPrompt(value);
         onPromptChange(node.id, value);
-        if (/(^|\s)\/[\p{L}\p{N}_-]*$/u.test(value)) {
+        if (showPromptTemplates && /(^|\s)\/[\p{L}\p{N}_-]*$/u.test(value)) {
             if (expandedPromptOpen) setExpandedPresetOpen(true);
             else setPresetOpen(true);
         }
+    };
+
+    const updatePromptFromCurrent = (updater: (currentPrompt: string) => string) => {
+        updatePrompt(updater(promptRef.current));
     };
 
     const applyPreset = (preset: CanvasPromptPreset) => {
@@ -244,25 +281,31 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
     const insertPromptReference = (reference: CanvasResourceReference) => {
         const insertText = `${canvasResourceMentionToken(reference)} `;
         const pendingMentionMatch = /@[^\s@，。！？、,.!?;:]*\s*$/.exec(prompt);
-        if (pendingMentionMatch) {
-            const prefix = prompt.slice(0, pendingMentionMatch.index).replace(/\s*$/, "");
-            updatePrompt(prefix ? `${prefix} ${insertText}` : insertText);
+        const basePrompt = pendingMentionMatch ? prompt.slice(0, pendingMentionMatch.index) : prompt;
+        // 同类型工具标签（style/nine_grid/effect）唯一：已有旧标签时原位覆盖，不再追加。
+        const overwrittenPrompt = overwriteSameTypeToolMention(basePrompt, reference);
+        if (overwrittenPrompt != null) {
+            updatePrompt(overwrittenPrompt.replace(/\s+$/, ""));
             return;
         }
-        const basePrompt = prompt.replace(/\s*$/, "");
-        updatePrompt(basePrompt ? `${basePrompt} ${insertText}` : insertText);
+        const trimmedBase = basePrompt.replace(/\s*$/, "");
+        updatePrompt(trimmedBase ? `${trimmedBase} ${insertText}` : insertText);
     };
+
+    const removeMotionToolMention = () => updatePromptFromCurrent((currentPrompt) => removeToolMentions(currentPrompt, "motion"));
 
     const submit = () => {
         const text = prompt.trim();
         if (!text || isRunning) return false;
-        onGenerate(node.id, mode, text);
+        if (mode === "text" && node.metadata?.listMode && onListGenerate) onListGenerate(node.id, text);
+        else onGenerate(node.id, mode, text);
         return true;
     };
 
     const submitExpandedPrompt = () => {
         if (submit()) {
             setExpandedPresetOpen(false);
+            setExpandedNineGridOpen(false);
             setExpandedPromptOpen(false);
         }
     };
@@ -291,8 +334,17 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                     {activeReferenceCount > 0 ? <span className="canvas-node-composer-reference-heading">{referenceShelfHeading(activeReferences)}</span> : null}
                 </div>
             )}
-            <div className="ml-auto flex shrink-0 items-center justify-end gap-1">
-            {!simpleMode ? <CanvasPresetPicker mode={mode} skillReferences={skillReferences} open={expanded ? expandedPresetOpen : presetOpen} onOpenChange={expanded ? setExpandedPresetOpen : setPresetOpen} onSelect={applyPreset} dense appearance="quiet" /> : null}
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
+            {!simpleMode && (mode === "image" || mode === "video") ? <div className="canvas-node-tool-controls canvas-node-tool-controls-inline flex items-center gap-1" data-canvas-no-zoom data-canvas-wheel-scroll onPointerDown={e => e.stopPropagation()}>
+                {mode === "image" ? <>
+                    <CanvasChooseImageStylePicker open={expanded ? expandedStyleToolOpen : styleToolOpen} onOpenChange={expanded ? setExpandedStyleToolOpen : setStyleToolOpen} activeToolId={activeStyleTool?.toolId} activeLabel={activeStyleTool?.label} onSelect={(id,label) => updatePromptFromCurrent((currentPrompt) => applyToolMention(currentPrompt,{id,label,type:"style"},"Palette"))} onClear={() => updatePromptFromCurrent((currentPrompt) => removeToolMentions(currentPrompt,"style"))} />
+                    <CanvasNineGridPicker open={expanded ? expandedNineGridOpen : nineGridOpen} onOpenChange={expanded ? setExpandedNineGridOpen : setNineGridOpen} icon={activeNineGridIcon} onSelect={(id,label,icon) => updatePromptFromCurrent((currentPrompt) => applyToolMention(currentPrompt,{id,label,type:"nine_grid"},icon))} />
+                </> : <>
+                    <CanvasChooseEffectPicker open={expanded ? expandedEffectToolOpen : effectToolOpen} onOpenChange={expanded ? setExpandedEffectToolOpen : setEffectToolOpen} activeToolId={activeEffectTool?.toolId} activeLabel={activeEffectTool?.label} onSelect={(id,label) => updatePromptFromCurrent((currentPrompt) => applyToolMention(currentPrompt,{id,label,type:"effect"},"Sparkles"))} onClear={() => updatePromptFromCurrent((currentPrompt) => removeToolMentions(currentPrompt,"effect"))} />
+                    <CanvasChooseMotionPicker open={expanded ? expandedMotionToolOpen : motionToolOpen} onOpenChange={expanded ? setExpandedMotionToolOpen : setMotionToolOpen} activeToolIds={activeMotionTools.map(t => t.toolId)} activeLabel={activeMotionTool?.label} onSelect={(id,label) => updatePromptFromCurrent((currentPrompt) => applyToolMention(currentPrompt,{id,label,type:"motion"},"Camera"))} onClear={removeMotionToolMention} />
+                </>}
+            </div> : null}
+            {showPromptTemplates ? <CanvasPresetPicker mode={mode} skillReferences={skillReferences} open={expanded ? expandedPresetOpen : presetOpen} onOpenChange={expanded ? setExpandedPresetOpen : setPresetOpen} onSelect={applyPreset} dense appearance="quiet" /> : null}
             {canOptimizePrompt ? (
                 <Tooltip title="用 AI 润色提示词">
                     <button
@@ -411,17 +463,35 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                         compact={!expanded}
                     />
                     {mode === "text" ? (
-                        <Tooltip title={`文本生成份数（默认 1，可在生成配置中调整）`}>
-                            <InputNumber
-                                size="small"
-                                min={1}
-                                max={15}
-                                value={Math.max(1, Math.min(15, Math.floor(Math.abs(Number(node.metadata?.textCount) || 1))))}
-                                onChange={(value) => onConfigChange(node.id, { textCount: Math.max(1, Math.min(15, Math.floor(Math.abs(Number(value)) || 1))) })}
-                                aria-label="文本生成份数"
-                                className="!w-14 !h-7 [&_.ant-input-number-input]:!text-[var(--fs-tiny)]"
-                            />
-                        </Tooltip>
+                        <>
+                            <div className="flex h-7 items-center overflow-hidden rounded-md border" style={{ borderColor: theme.node.stroke }}>
+                                <button type="button" aria-pressed={!node.metadata?.listMode} onClick={() => onConfigChange(node.id, { listMode: false })} className={`flex h-full items-center gap-1 px-2 text-[var(--fs-tiny)] transition-colors focus-visible:outline ${!node.metadata?.listMode ? "font-medium" : ""}`} style={!node.metadata?.listMode ? { background: theme.toolbar.activeBg, color: theme.toolbar.activeText } : { color: theme.node.muted }}>
+                                    <FileText className="size-3" />
+                                    文本
+                                </button>
+                                <button type="button" aria-pressed={Boolean(node.metadata?.listMode)} onClick={() => onConfigChange(node.id, { listMode: true })} className={`flex h-full items-center gap-1 px-2 text-[var(--fs-tiny)] transition-colors focus-visible:outline ${node.metadata?.listMode ? "font-medium" : ""}`} style={node.metadata?.listMode ? { background: theme.toolbar.activeBg, color: theme.toolbar.activeText } : { color: theme.node.muted }}>
+                                    <LayoutList className="size-3" />
+                                    列表
+                                </button>
+                            </div>
+                            {!node.metadata?.listMode ? (
+                                <Tooltip title={`文本生成份数（默认 1，可在生成配置中调整）`}>
+                                    <InputNumber
+                                        size="small"
+                                        min={1}
+                                        max={15}
+                                        value={Math.max(1, Math.min(15, Math.floor(Math.abs(Number(node.metadata?.textCount) || 1))))}
+                                        onChange={(value) =>
+                                            onConfigChange(node.id, {
+                                                textCount: Math.max(1, Math.min(15, Math.floor(Math.abs(Number(value) || 1)))),
+                                            })
+                                        }
+                                        aria-label="文本生成份数"
+                                        className="!w-14 !h-7 [&_.ant-input-number-input]:!text-[var(--fs-tiny)]"
+                                    />
+                                </Tooltip>
+                            ) : <span className="text-[10px]" style={{ color: theme.node.muted }}>行数和列结构由模型判断</span>}
+                        </>
                     ) : mode === "image" ? (
                         // 图片模式下，显示相机配置与镜头配置
                         <>
@@ -476,7 +546,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                     />
                     <CanvasResourceMentionTextarea
                         value={prompt}
-                        references={resolvedMentionReferences}
+                        references={textareaReferences}
                         onSelectReference={onAddReference ? (reference) => onAddReference(node.id, reference) : undefined}
                         includeAssetLibrary
                         onChange={updatePrompt}
@@ -563,6 +633,7 @@ export function CanvasNodePromptPanel({ projectId, node, isRunning, onPromptChan
                 destroyOnHidden
                 onCancel={() => {
                     setExpandedPresetOpen(false);
+                    setExpandedNineGridOpen(false);
                     setExpandedPromptOpen(false);
                 }}
                 styles={{
@@ -682,7 +753,7 @@ function ConnectedReferenceShelf({
     onReplaceReference?: (oldReference: CanvasResourceReference, sourceNodeId: string) => void;
     onReplaceReferenceFiles?: (oldReference: CanvasResourceReference, files: File[]) => void;
 }) {
-    const activeReferences = references.filter((item) => item.active && item.kind !== "skill");
+    const activeReferences = references.filter((item) => item.active && item.kind !== "skill" && item.kind !== "tool");
     const [imagePreview, setImagePreview] = useState<CanvasResourceReference | null>(null);
     const [draggedReferenceId, setDraggedReferenceId] = useState<string | null>(null);
     const [dropTargetReferenceId, setDropTargetReferenceId] = useState<string | null>(null);
@@ -1034,6 +1105,7 @@ function defaultMode(type: CanvasNodeData["type"]): CanvasNodeGenerationMode {
 }
 
 export function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mode: CanvasNodeGenerationMode, requirements: ModelRequirements): AiConfig {
+    node = { ...node, metadata: canonicalGenerationMetadata(node, mode) };
     const defaultModel = mode === "image" ? globalConfig.imageModel : mode === "video" ? globalConfig.videoModel : mode === "audio" ? globalConfig.audioModel : globalConfig.textModel;
     const fallbackModel = mode === "image" ? defaultConfig.imageModel : mode === "video" ? defaultConfig.videoModel : mode === "audio" ? defaultConfig.audioModel : defaultConfig.textModel;
     const preferredModel = resolveCanvasGenerationModel(globalConfig, node.metadata?.model, mode) || resolveCanvasGenerationModel(globalConfig, defaultModel, mode) || fallbackModel;
@@ -1074,7 +1146,7 @@ export function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mo
         quality: defaults.quality ?? globalConfig.quality ?? defaultConfig.quality,
         size: defaults.size ?? globalConfig.size ?? defaultConfig.size,
         transparentBackground: defaults.transparentBackground ?? "false",
-        videoSeconds: defaults.videoSeconds || normalizeVideoDuration(globalConfig.videoSeconds || defaultConfig.videoSeconds),
+        videoSeconds: defaults.videoSeconds ?? normalizeVideoDuration(globalConfig.videoSeconds ?? defaultConfig.videoSeconds),
         vquality: defaults.vquality ?? normalizeVideoResolution(globalConfig.vquality || defaultConfig.vquality),
         videoGenerateAudio: defaults.videoGenerateAudio ?? globalConfig.videoGenerateAudio ?? defaultConfig.videoGenerateAudio,
         videoWatermark: defaults.videoWatermark ?? globalConfig.videoWatermark ?? defaultConfig.videoWatermark,

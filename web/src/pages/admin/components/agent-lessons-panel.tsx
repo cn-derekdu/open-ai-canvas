@@ -1,4 +1,4 @@
-import { App, Button, Input, Select, Space, Tag, Tooltip } from "antd";
+import { App, Button, Input, Space, Tag, Tooltip } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,6 +7,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { agentLessonCategoryLabel, deleteAdminAgentLesson, listAdminAgentLessons, type AdminAgentLesson } from "@/services/api/admin-agent-lessons";
 import { listAdminUsers, type AdminUser } from "@/services/api/auth";
 import { AdminDataTable, AdminStatusBadge, AdminTableEmpty } from "./admin-ui";
+import { Select } from "@/components/ui/base/select";
 
 function authorLabel(record: AdminAgentLesson) {
     if (record.authorDisplayName && record.authorUsername) return `${record.authorDisplayName}（${record.authorUsername}）`;
@@ -179,9 +180,7 @@ export default function AgentLessonsPanel() {
 
     return (
         <div className="flex flex-col gap-3">
-            <p className="text-xs text-foreground/60">
-                记忆归用户自己批准和管理。这里只做巡查：可按用户、状态、关键词筛选，必要时删除违规内容。批准入口在用户的「设置 → Agent 记忆」。
-            </p>
+            <p className="text-xs text-foreground/60">记忆归用户自己批准和管理。这里只做巡查：可按用户、状态、关键词筛选，必要时删除违规内容。批准入口在用户的「设置 → Agent 记忆」。</p>
             <AdminDataTable
                 toolbar={
                     <div className="flex flex-wrap items-center gap-2">
@@ -211,13 +210,7 @@ export default function AgentLessonsPanel() {
                                 label: user.displayName ? `${user.displayName}（${user.username}）` : user.username,
                             }))}
                         />
-                        <Input.Search
-                            allowClear
-                            placeholder="主题、内容或用户名"
-                            className="w-[220px]"
-                            value={keyword}
-                            onChange={(event) => setKeyword(event.target.value)}
-                        />
+                        <Input.Search allowClear placeholder="主题、内容或用户名" className="w-[220px]" value={keyword} onChange={(event) => setKeyword(event.target.value)} />
                         <Button icon={<RefreshCw className="size-4" />} onClick={() => void load()}>
                             刷新
                         </Button>
