@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -23,6 +24,73 @@ type cloudAgentApprovalPreview struct {
 	Title       string                          `json:"title"`
 	Description string                          `json:"description"`
 	Items       []cloudAgentApprovalPreviewItem `json:"items"`
+	// Action 是"改了什么"的短语（如"修改 3 个节点"），不含审批语气词。
+	// 它让同一份预览既能生成审批卡文案，也能生成"已生效"的事实陈述：
+	// 后者必须存在，否则无需审批的模式会把审批文案交给模型（见 cloudAgentAppliedCanvasPreview）。
+	Action string `json:"action,omitempty"`
+}
+
+// cloudAgentAppliedCanvasPreview 把画布审批预览改写成"已经写入"的事实陈述。
+//
+// 需要审批时，写入发生在用户批准之后，预览就该带着"请确认…批准后才会写入画布"。但在 auto 这类
+// 不产生审批卡的模式下，写入是立即生效的：如果仍然把审批文案交给模型，模型会据此让用户去点击
+// 一张根本不存在的卡，然后停在原地等一个永远不会到来的批准（2026-09-25 线上事故）。
+func cloudAgentAppliedCanvasPreview(preview cloudAgentApprovalPreview) cloudAgentApprovalPreview {
+	action := strings.TrimSpace(preview.Action)
+	if action == "" {
+		action = "修改画布"
+	}
+	return cloudAgentApprovalPreview{
+		Kind:        preview.Kind,
+		Title:       "画布修改",
+		Description: fmt.Sprintf("Agent 已%s，画布已更新。本操作立即生效，不需要用户批准。", action),
+		Items:       preview.Items,
+	}
+}
+
+// cloudAgentApprovalGatedCanvasPreview 返回这次写入应当对外呈现的预览：只有确实走了审批
+// （state.Approval 非空）才保留审批文案，否则给"已生效"版本。
+func cloudAgentApprovalGatedCanvasPreview(state *cloudAgentRuntime, preview cloudAgentApprovalPreview) cloudAgentApprovalPreview {
+	// 取不到运行态时按"没有审批"处理：漏一句审批语气只是措辞问题，而多出一句
+	// "批准后才会写入画布"会让模型去要一张不存在的卡，代价大得多。
+	if state == nil || state.Approval == nil {
+		return cloudAgentAppliedCanvasPreview(preview)
+	}
+	return preview
+}
+
+// cloudAgentRewriteUngatedPreview 在工具结果里就地替换画布预览。工具结果会作为 tool 消息
+// 进入模型上下文，是模型"以为有审批卡"的直接来源；事件文本与 UI 也读同一份数据。
+func cloudAgentRewriteUngatedPreview(state *cloudAgentRuntime, result any) any {
+	if state != nil && state.Approval != nil {
+		return result
+	}
+	switch value := result.(type) {
+	case cloudAgentApprovalPreview:
+		return cloudAgentAppliedCanvasPreview(value)
+	case *cloudAgentApprovalPreview:
+		if value == nil {
+			return result
+		}
+		applied := cloudAgentAppliedCanvasPreview(*value)
+		return &applied
+	case map[string]any:
+		preview, ok := value["preview"]
+		if !ok {
+			return result
+		}
+		applied := cloudAgentRewriteUngatedPreview(state, preview)
+		if reflect.DeepEqual(applied, preview) {
+			return result
+		}
+		next := make(map[string]any, len(value))
+		for key, item := range value {
+			next[key] = item
+		}
+		next["preview"] = applied
+		return next
+	}
+	return result
 }
 
 type cloudAgentApprovalPreviewItem struct {
@@ -239,6 +307,7 @@ func cloudAgentCanvasApprovalPreview(items []cloudAgentApprovalPreviewItem) clou
 		Kind: "canvas_mutation", Title: "确认画布修改",
 		Description: fmt.Sprintf("Agent 准备%s。请确认目标节点和修改字段；批准后才会写入画布。", strings.Join(parts, "，")),
 		Items:       items,
+		Action:      strings.Join(parts, "，"),
 	}
 }
 

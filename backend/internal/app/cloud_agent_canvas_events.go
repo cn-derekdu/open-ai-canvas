@@ -184,8 +184,11 @@ func emitCloudAgentCanvasChange(repo *repository.Repository, runID string, state
 		"canvasPatch": map[string]any{"canvasId": input.CanvasID, "baseRevision": canvas.Revision - 1, "revision": canvas.Revision, "updatedAt": after["updatedAt"], "nodes": nodes, "connections": edges},
 	}
 	if input.Preview != nil {
-		payload["preview"] = input.Preview
-		payload["text"] = input.Preview.Description
+		// 只有真的走过审批才保留审批文案；否则事件里应当写"已生效"，避免 UI 与模型
+		// 都以为还有一张待批准的卡。
+		preview := cloudAgentApprovalGatedCanvasPreview(state, *input.Preview)
+		payload["preview"] = preview
+		payload["text"] = preview.Description
 	}
 	if state.CallIndex >= 0 && state.CallIndex < len(state.Calls) {
 		payload["callId"] = state.Calls[state.CallIndex].ID
