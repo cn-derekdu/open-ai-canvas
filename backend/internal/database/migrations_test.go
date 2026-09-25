@@ -11,6 +11,16 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestCurrentSchemaVersionMatchesMigrationPlan(t *testing.T) {
+	if len(schemaMigrations) == 0 {
+		t.Fatal("migration plan is empty")
+	}
+	latest := schemaMigrations[len(schemaMigrations)-1].version
+	if CurrentSchemaVersion != latest {
+		t.Fatalf("supported schema version %d does not match latest migration %d", CurrentSchemaVersion, latest)
+	}
+}
+
 func TestMigrateSchemaRecordsAndValidatesVersion(t *testing.T) {
 	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-version?mode=memory&cache=shared"})
 	if err != nil {
@@ -447,7 +457,7 @@ func TestMigrateSchemaV4AddsResourceUploadKeyToExistingSchema(t *testing.T) {
 	if err := db.Exec(`CREATE TABLE resources (id TEXT PRIMARY KEY, user_id TEXT NOT NULL)`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.ModelChannel{}, &model.ChannelModel{}); err != nil {
+	if err := db.AutoMigrate(&model.ModelChannel{}, &model.ChannelModel{}, &model.ChannelModelPriceTier{}, &model.BillingOrder{}, &model.OAuthState{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
@@ -491,7 +501,7 @@ func TestMigrateSchemaRepairsLegacyAssetFoldersMigrationOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&model.Resource{}, &model.Asset{}, &model.AssetFolder{}, &model.ModelChannel{}, &model.ChannelModel{}); err != nil {
+	if err := db.AutoMigrate(&model.Resource{}, &model.Asset{}, &model.AssetFolder{}, &model.ModelChannel{}, &model.ChannelModel{}, &model.ChannelModelPriceTier{}, &model.BillingOrder{}, &model.OAuthState{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
@@ -598,5 +608,78 @@ func TestMigrateSchemaV13AddsCloudAgentCanvasMutation(t *testing.T) {
 		if !db.Migrator().HasColumn(&model.CloudAgentCanvasMutation{}, field) {
 			t.Fatalf("migration v13 did not add %s", field)
 		}
+	}
+}
+
+func TestMigrateSchemaV30AddsBuiltinTools(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-builtin-tools-v30?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if !db.Migrator().HasTable(&model.Tool{}) {
+		t.Fatal("migration v30 did not create tools table")
+	}
+}
+
+func TestMigrateSchemaV31AddsToolUserActions(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-tool-user-actions-v31?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := MigrateSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if !db.Migrator().HasTable(&model.ToolFavorite{}) {
+		t.Fatal("migration v31 did not create tool_favorites table")
+	}
+}
+
+func TestToolsUpgradeFromMain29PreservesMigrationChecksums(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:tools-main29-upgrade?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&schemaMigration{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range schemaMigrations {
+		if item.version > 30 {
+			break
+		}
+		if err := item.apply(db); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Create(&schemaMigration{Version: item.version, Name: item.name, Checksum: item.checksum, AppliedAt: time.Now()}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The initial migration uses today's model registry; restore the actual v30
+	// boundary so this test proves that v31/v32 create the new tables.
+	if err := db.Migrator().DropTable(&model.ToolFavorite{}, &model.Tool{}); err != nil {
+		t.Fatal(err)
+	}
+	if db.Migrator().HasTable(&model.Tool{}) || db.Migrator().HasTable(&model.ToolFavorite{}) {
+		t.Fatal("tool tables must not exist before upgrading v29")
+	}
+	for range 2 {
+		if err := MigrateSchema(db); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, version := range []int64{29, 30} {
+		var record schemaMigration
+		if err := db.First(&record, version).Error; err != nil {
+			t.Fatal(err)
+		}
+		expected := map[int64]string{29: "sha256:agent-execution-journal-v28", 30: "sha256:agent-resource-leases-v29-20260919"}
+		if record.Checksum != expected[version] {
+			t.Fatal("main checksum changed")
+		}
+	}
+	if !db.Migrator().HasTable(&model.Tool{}) || !db.Migrator().HasTable(&model.ToolFavorite{}) {
+		t.Fatal("tools tables missing")
 	}
 }

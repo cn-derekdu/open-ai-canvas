@@ -436,8 +436,11 @@ func TestAppearanceSkinLibrarySupportsEditableCopiesAndProtectsClassic(t *testin
 	legacyCustom.Tokens.Light.DangerHover = ""
 	legacyCustom.Tokens.Light.DangerActive = ""
 	legacyCustom.Tokens.Light.DangerForeground = ""
-	backfilled := normalizeAppearanceSkinThemes([]AppearanceSkinTheme{legacyCustom})[0]
-	if backfilled.Tokens.Light.SwitchChecked != "#123456" || backfilled.Tokens.Light.SwitchCheckedHover != "#234567" || backfilled.Tokens.Light.SwitchUnchecked != legacyCustom.Tokens.Light.ControlBorder || backfilled.Tokens.Light.DangerHover != legacyCustom.Tokens.Light.Danger {
+	// 归一化会在缺少系统默认主题时把它补回数组首位，因此必须按 ID 取回自定义主题，
+	// 不能假设下标 0 就是它。
+	normalized := normalizeAppearanceSkinThemes([]AppearanceSkinTheme{legacyCustom})
+	backfilled := activeAppearanceSkin(normalized, legacyCustom.ID)
+	if backfilled.ID != legacyCustom.ID || backfilled.Tokens.Light.SwitchChecked != "#123456" || backfilled.Tokens.Light.SwitchCheckedHover != "#234567" || backfilled.Tokens.Light.SwitchUnchecked != legacyCustom.Tokens.Light.ControlBorder || backfilled.Tokens.Light.DangerHover != legacyCustom.Tokens.Light.Danger {
 		t.Fatalf("legacy skin state backfill = %#v", backfilled.Tokens.Light)
 	}
 

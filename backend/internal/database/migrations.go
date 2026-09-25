@@ -15,7 +15,10 @@ import (
 // 因此上游 v1.5.0 的 v16~v19 顺延为 v17~v20；上游后续新增的 v20~v23 顺延为 v21~v24，
 // v24~v27 继续顺延为 v25~v28，v28~v29 继续顺延为 v29~v30，v30~v31 继续顺延为 v31~v32，
 // v32 继续顺延为 v33，v33~v34 继续顺延为 v34~v35。
-// v36 为本地二开修复：sms_auth_verification 补回 sms/手机号验证特性的表与列。
+// v36 为本地二开修复：sms_auth_verification 补回 sms/手机号验证特性的表与列，
+// 并同时并入上游 v35（auth_notifications）的建表需求——上游 v35 顺延后本应落在 v36，
+// 而 v36 已被二开占用，故合并为一个条目，不再单独登记上游 v35。
+// 上游后续新增版本仍按 +1 顺延（例如上游 v36 → 本地 v37）。
 const CurrentSchemaVersion int64 = 36
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
@@ -137,10 +140,12 @@ var schemaMigrations = []migration{
 	{version: 36, name: "sms_auth_verification", checksum: smsAuthVerificationChecksum, apply: migrateSchemaV36},
 }
 
-// migrateSchemaV36 补齐短信验证特性依赖的持久化对象。
+// migrateSchemaV36 补齐短信验证与认证通知特性依赖的持久化对象。
+// 内容为二开 sms_auth_verification 与上游 v35 auth_notifications 的并集：
+// 邮件验证码表（上游 v35 新增）以及短信/手机号相关的表、列、索引都在这里落地。
 // 只做增量：AutoMigrate 会新增缺失的表与列，不会删除既有数据。
 func migrateSchemaV36(tx *gorm.DB) error {
-	if err := tx.AutoMigrate(&model.User{}, &model.SMSChannel{}, &model.SMSRecord{}, &model.AuthVerification{}, &model.NotificationQuota{}); err != nil {
+	if err := tx.AutoMigrate(&model.User{}, &model.EmailVerificationCode{}, &model.SMSChannel{}, &model.SMSRecord{}, &model.AuthVerification{}, &model.NotificationQuota{}); err != nil {
 		return err
 	}
 	if err := tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_nonempty ON users(phone) WHERE phone <> ''").Error; err != nil {
@@ -221,7 +226,6 @@ func migrateSchemaV16(tx *gorm.DB) error {
 	}
 	return nil
 }
-
 
 func migrateSchemaV14(tx *gorm.DB) error {
 	if err := tx.AutoMigrate(&model.CloudAgentExecution{}); err != nil {
