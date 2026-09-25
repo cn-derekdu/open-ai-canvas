@@ -32,6 +32,7 @@ import { getActiveUserScope } from "@/lib/user-scope";
 import { applyAgentCanvasPatches, refreshCanvasAfterAgent, saveRemoteUserDataNow } from "@/services/user-data-sync";
 import { createAgentCanvasSync } from "@/services/agent-canvas-sync";
 import { buildSkillMentionReferences, resolveSkillMentions } from "@/services/skill-runtime";
+import { deferAgentSkillSelection, pruneAgentSkillSelection } from "@/lib/canvas/agent-skill-selection";
 import { AgentChatComposer, AgentChatMessage, AgentPlanBar, AgentQuestionBar, AgentSceneCapsules, AgentWorkingMessage, AGENT_SCENE_DEFS, type AgentSceneBucket, type CloudAgentChatMessage, type CloudAgentPlanItem } from "./canvas-cloud-agent-chat-ui";
 import { CanvasAgentSkillLibraryModal } from "./canvas-agent-skill-library-modal";
 import { CanvasCloudAgentSettings, agentPermissionLabel, agentPermissionMenuItems, agentPermissionVisual, type AgentContextKey } from "./canvas-cloud-agent-settings";
@@ -131,6 +132,15 @@ export function CanvasCloudAgentPanel({ canvasId, domainProjectId, nodeCount, re
     const installedSkills = useMemo(() => skills.filter((skill) => skill.isAdded), [skills]);
     const enabledSkills = useMemo(() => installedSkills.filter((skill) => selectedSkillIds.includes(skill.skillId)), [installedSkills, selectedSkillIds]);
     const installedSkillIds = useMemo(() => new Set(installedSkills.map((skill) => skill.skillId)), [installedSkills]);
+    // 技能可能在本会话创建之后从技能库移除（取消安装、下架、换账号）。服务端只接受"已安装且启用"
+    // 的技能，原样提交会让整单被拒，会话从此再也发不出消息。这里按技能库收敛，且只在技能库已经读到
+    // 之后生效：技能尚未加载时返回原值，避免把用户的选择清空。
+    const skillsHydratedRef = useRef(false);
+    useEffect(() => { if (skills.length > 0) skillsHydratedRef.current = true; }, [skills]);
+    const pruneSkills = useCallback((ids: string[]) => {
+        if (!skillsHydratedRef.current) return deferAgentSkillSelection(ids);
+        return pruneAgentSkillSelection(ids, installedSkillIds);
+    }, [installedSkillIds]);
 
     const [createdSkills, setCreatedSkills] = useState<Skill[]>([]);
 
@@ -398,7 +408,7 @@ export function CanvasCloudAgentPanel({ canvasId, domainProjectId, nodeCount, re
                     setMessages(current.messages);
                     setRun(current.run);
                     setPermissionMode(current.permissionMode);
-                    setSelectedSkillIds(current.skillIds || []);
+                    setSelectedSkillIds(pruneSkills(current.skillIds || []).ids);
                     if (current.model) setModel(current.model);
                     const pending = await loadCloudAgentPendingSubmission(canvasId, current.id);
                     if (!active) return;
@@ -521,6 +531,7 @@ export function CanvasCloudAgentPanel({ canvasId, domainProjectId, nodeCount, re
         submissionRequestRef.current = true;
         setBusy(true);
         let accepted = false;
+        let conversationSkillIds = selectedSkillIds;
         try {
             const pending = pendingSubmission.current;
             // An ambiguous previous POST owns its body/key until reconciled.
@@ -538,11 +549,21 @@ export function CanvasCloudAgentPanel({ canvasId, domainProjectId, nodeCount, re
                 const agentConfig = { ...config, model: selectedModel };
                 const requestConfig = resolveModelRequestConfig(agentConfig, selectedModel);
                 const logicalModelId = logicalModelIDForConfig(agentConfig);
+                // 会话创建之后被移出技能库的技能不能原样提交：服务端只接受已安装且启用的技能，
+                // 否则整单被拒（400），这个会话就再也发不出消息。这里剔掉失效项并明确告知用户。
+                const requestedSkillIds = [...new Set([...selectedSkillIds, ...resolveSkillMentions(value, installedSkills).map((skill) => skill.skillId)])];
+                const { ids: submittedSkillIds, dropped: droppedSkillIds } = pruneSkills(requestedSkillIds);
+                if (droppedSkillIds.length) {
+                    setSelectedSkillIds(submittedSkillIds);
+                    conversationSkillIds = submittedSkillIds;
+                    const names = droppedSkillIds.map((id) => skills.find((skill) => skill.skillId === id)?.skillName || id).join("、");
+                    setMessages((current) => appendUniqueMessage(current, { id: `skills-pruned-${droppedSkillIds.join("-")}`, role: "system", text: `已忽略 ${droppedSkillIds.length} 个不在技能库中的技能：${names}。需要它们请先在技能库重新安装。` }));
+                }
                 const input = {
                     canvasId, prompt: value, reasoningMode: reasoningSupported ? reasoningMode : "off", profileRevision: profileView.revision,
                     model: modelOptionName(selectedModel) || undefined,
                     ...(logicalModelId ? { logicalModelId } : requestConfig.channelId ? { channelId: requestConfig.channelId, channelModelKey: modelOptionName(selectedModel) || undefined } : {}),
-                    skillIds: [...new Set([...selectedSkillIds, ...resolveSkillMentions(value, installedSkills).map((skill) => skill.skillId)])],
+                    skillIds: submittedSkillIds,
                     permissionMode, contextScope,
                     budget: { maxCredits: positiveNumber(maxCredits), maxGenerationTasks: permissionMode === "read_only" ? 0 : Number(maxGenerationTasks), maxVideoSeconds: permissionMode === "read_only" ? 0 : Number(maxVideoSeconds) },
                 };
@@ -565,7 +586,7 @@ export function CanvasCloudAgentPanel({ canvasId, domainProjectId, nodeCount, re
             // otherwise a reload of a brand-new chat can orphan the pending record.
             await saveCloudAgentConversations(canvasId, activeConversationId, [{
                 id: activeConversationId, title: cloudAgentConversationTitle(nextMessages), messages: nextMessages, run,
-                model: selectedModel || undefined, permissionMode, skillIds: selectedSkillIds,
+                model: selectedModel || undefined, permissionMode, skillIds: conversationSkillIds,
                 createdAt: existing?.createdAt || now, updatedAt: now,
             }, ...conversations.filter((item) => item.id !== activeConversationId)]);
             if (currentScope.current !== scope) return;
@@ -713,7 +734,7 @@ export function CanvasCloudAgentPanel({ canvasId, domainProjectId, nodeCount, re
         setRun(conversation.run);
         setMessages(conversation.messages);
         setPermissionMode(conversation.permissionMode);
-        setSelectedSkillIds(conversation.skillIds || []);
+        setSelectedSkillIds(pruneSkills(conversation.skillIds || []).ids);
         setApproval(null);
         setPrompt("");
         if (conversation.model) setModel(conversation.model);
