@@ -104,6 +104,7 @@ type cloudAgentRuntime struct {
 	DecisionPreparedHashes map[string]string                       `json:"decisionPreparedHashes,omitempty"`
 	ActionNudged           bool                                    `json:"actionNudged,omitempty"`
 	EmptyOutputNudged      int                                     `json:"emptyOutputNudged,omitempty"`
+	ApprovalClaimNudges    int                                     `json:"approvalClaimNudges,omitempty"`
 	StepSnapshotHash       string                                  `json:"stepSnapshotHash,omitempty"`
 	StoryboardTaskID       string                                  `json:"storyboardTaskId,omitempty"`
 	Plan                   []cloudAgentPlanItem                    `json:"plan,omitempty"`
@@ -925,6 +926,14 @@ func (s *Service) advanceCloudAgent(run *model.CloudAgentExecution) (err error) 
 						return cloudAgentSave(current, &state)
 					}
 				}
+				// 模型自称在等审批，但本轮没有待批准的审批（state.Approval 为空）：这通常是它把
+				// 无需审批的写入当成了要批准的卡片。就此当成功收尾会让用户照着一句不存在的话
+				// 去点一张不存在的卡、对话永久停住，所以给一次纠正机会继续推进。
+				if !cloudAgentStepBudgetExhausted(&state) && cloudAgentShouldNudgeApprovalClaim(&state, result.Text) {
+					state.ApprovalClaimNudges++
+					state.Canonical.Messages = append(state.Canonical.Messages, cloudAgentApprovalClaimNudgeMessage(&state))
+					return cloudAgentSave(current, &state)
+				}
 				current.Status = "completed"
 			}
 			return cloudAgentSave(current, &state)
@@ -1314,6 +1323,9 @@ func cloudAgentToolResult(runID string, state *cloudAgentRuntime, call cloudAgen
 		// 看图是只读成功路径，不占自动纠错名额（那名额只给写/生成类工具的预执行参数错误）。
 		return false
 	}
+	// 工具结果会作为 tool 消息进入模型上下文：没有审批的写入必须去掉审批语气，
+	// 否则模型会让用户去点击一张不存在的卡，并停在原地等一个不会到来的批准。
+	result = cloudAgentRewriteUngatedPreview(state, result)
 	exhausted := cloudAgentTrackToolRepair(runID, state, call, result, err, payload)
 	raw, _ := json.Marshal(result)
 	payload["result"] = result
