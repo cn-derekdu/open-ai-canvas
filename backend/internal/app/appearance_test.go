@@ -484,6 +484,68 @@ func TestAppearanceSkinLibrarySupportsEditableCopiesAndProtectsClassic(t *testin
 	}
 }
 
+// 回归：生产现场是"存量库保存的是旧默认值，新版本修正了内置默认值"，逐字段全等校验会让
+// 整个外观页永久无法保存（2026-09-24 线上连续 8 次 PATCH 400，且错误文案指向内置主题，
+// 与用户实际操作的"切换主题"无关）。收敛式归一化必须让这类库自愈。
+func TestAppearanceConvergesStoredLegacyBuiltInSkin(t *testing.T) {
+	svc, db, _, admin := newAppearanceTestService(t)
+
+	// 旧版内置主题：浅色模式曾误用深色 auth 配色（d89b55d1 修正之前的默认值）。
+	legacy := defaultAppearanceSetting()
+	legacy.SkinThemes = defaultAppearanceSkinThemes()
+	legacy.SkinThemes[0].Tokens.Light.AuthBackground = "#08090c"
+	legacy.SkinThemes[0].Tokens.Light.AuthPanel = "#0b0c10"
+	legacy.SkinThemes[0].Tokens.Light.AuthCard = "#121318"
+	legacy.SkinThemes[0].Tokens.Light.AuthAccent = "#93c5fd"
+	legacy.SkinThemes[0].Tokens.Light.AuthMuted = "#8a8b91"
+	encoded, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.SystemSetting{Key: appearanceSettingKey, ValueJSON: string(encoded)}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// 读取路径不报错，并直接按新内置值对外生效（不必先成功保存一次）。
+	public, err := svc.Appearance()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if public.ActiveSkin.Tokens.Light.AuthBackground != "#ffffff" || public.ActiveSkin.Tokens.Light.AuthAccent != "#2563eb" {
+		t.Fatalf("stored legacy built-in skin was not converged on read = %#v", public.ActiveSkin.Tokens.Light)
+	}
+
+	// 保存路径：客户端把库里的旧值原样回传（这正是线上被拒的那次提交）必须成功。
+	updated, err := svc.UpdateAppearance(admin, legacy)
+	if err != nil {
+		t.Fatalf("saving legacy skin library = %v", err)
+	}
+	builtIn := defaultClassicAppearanceSkin()
+	updatedClassic, ok := appearanceSkinByID(updated.SkinThemes, defaultAppearanceSkinID)
+	if !ok || updatedClassic.Tokens != builtIn.Tokens {
+		t.Fatalf("saved built-in skin = %#v", updatedClassic)
+	}
+
+	// 落库内容同样收敛，避免下一次保存又带着旧值提交。
+	_, persisted, err := svc.readAppearance()
+	if err != nil {
+		t.Fatal(err)
+	}
+	persistedClassic, ok := appearanceSkinByID(persisted.SkinThemes, defaultAppearanceSkinID)
+	if !ok || persistedClassic.Tokens != builtIn.Tokens {
+		t.Fatalf("persisted built-in skin = %#v", persistedClassic)
+	}
+}
+
+func appearanceSkinByID(themes []AppearanceSkinTheme, id string) (AppearanceSkinTheme, bool) {
+	for _, theme := range themes {
+		if theme.ID == id {
+			return theme, true
+		}
+	}
+	return AppearanceSkinTheme{}, false
+}
+
 func TestValidateAppearanceUploadSniffsBytesInsteadOfDeclaredMIME(t *testing.T) {
 	pngHeader := multipartFileHeader(t, "logo.png", "text/plain", append([]byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}, bytes.Repeat([]byte{0}, 32)...))
 	if mimeType, err := validateAppearanceUpload(AppearanceAssetLogo, pngHeader); err != nil || mimeType != "image/png" {
