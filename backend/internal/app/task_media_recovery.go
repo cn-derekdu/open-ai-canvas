@@ -211,7 +211,7 @@ func (s *Service) materializeTaskMedia(ctx context.Context, task *model.Task, co
 				}
 				item.TempName, item.MIMEType, err = s.downloadTaskMedia(ctx, config, item.Reference.URL, checkpoint.Mode)
 				if err != nil {
-					return nil, &mediaRecoveryError{stage: "download", retryable: retryableMediaRecovery(err), cause: err}
+					return nil, &mediaRecoveryError{stage: "download", retryable: retryableMediaRecovery(ctx, err), cause: err}
 				}
 				path = s.mediaTempPath(item.TempName)
 				if err := s.saveMediaCheckpoint(task, checkpoint, "download"); err != nil {
@@ -233,7 +233,7 @@ func (s *Service) materializeTaskMedia(ctx context.Context, task *model.Task, co
 			resource, err = s.storeTaskMediaFile(task, index, path, item.MIMEType, checkpoint.Mode, resource)
 			s.logMediaStage(*task, stage, started, err)
 			if err != nil {
-				return nil, &mediaRecoveryError{stage: stage, retryable: retryableMediaRecovery(err), cause: err}
+				return nil, &mediaRecoveryError{stage: stage, retryable: retryableMediaRecovery(ctx, err), cause: err}
 			}
 		}
 		item.ResourceID = resource.ID
@@ -254,8 +254,8 @@ func (s *Service) materializeTaskMedia(ctx context.Context, task *model.Task, co
 
 var errMediaRecoveryBusy = errors.New("作品保存并发已满")
 
-func retryableMediaRecovery(err error) bool {
-	if retryableProtocolMediaDownload(err) || errors.Is(err, context.DeadlineExceeded) {
+func retryableMediaRecovery(ctx context.Context, err error) bool {
+	if retryableProtocolMediaDownload(ctx, err) || errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
 	var upstream providerHTTPError
