@@ -19,6 +19,7 @@ import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
 import { flushCanvasStorePersistence, useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import { useCanvasUiStore } from "@/stores/canvas/use-canvas-ui-store";
 import { exportCanvasProjects } from "@/lib/canvas/canvas-export";
+import { remapImportedNodeMedia } from "@/lib/canvas/canvas-import-remap";
 import { saveCanvasDrawing, type CanvasDrawingRenderDraft } from "@/lib/canvas/canvas-drawing-storage";
 import { createCanvasProjectWithRemoteSync, hasRemoteUserDataSyncSession, loadCanvasProjectForEditing, saveRemoteUserDataNow, scheduleRemoteUserDataSync } from "@/services/user-data-sync";
 import { listRemoteCanvasProjectsPage, type CanvasLibrarySummary } from "@/services/api/user-data";
@@ -242,17 +243,12 @@ export default function CanvasPage() {
                     const remapNodeMedia = (node: CanvasNodeData): CanvasNodeData => {
                         const oldKey = node.metadata?.storageKey;
                         const mapped = oldKey ? storageKeyMap.get(oldKey) : undefined;
-                        const isDeadBlob = (val?: string) => typeof val === "string" && val.startsWith("blob:");
-                        const nextStorageKey = mapped ? mapped.storageKey : oldKey && !isDeadBlob(oldKey) ? oldKey : undefined;
-                        const content = mapped ? mapped.url : isDeadBlob(node.metadata?.content) ? "" : node.metadata?.content;
-                        const previewContent = mapped ? mapped.url : isDeadBlob(node.metadata?.previewContent) ? "" : node.metadata?.previewContent;
+                        // 文本节点的 content 是正文，由 remapImportedNodeMedia 保证不被换成资源路径。
                         return {
                             ...node,
                             metadata: {
                                 ...node.metadata,
-                                ...(nextStorageKey !== undefined ? { storageKey: nextStorageKey } : {}),
-                                ...(content !== undefined ? { content } : {}),
-                                ...(previewContent !== undefined ? { previewContent } : {}),
+                                ...remapImportedNodeMedia(node, mapped),
                                 drawingEngine: node.type === "drawing" && node.metadata?.drawingId ? drawingEngineById.get(node.metadata.drawingId) || node.metadata.drawingEngine || "tldraw" : node.metadata?.drawingEngine,
                             },
                         };
