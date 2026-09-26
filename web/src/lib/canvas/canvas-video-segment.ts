@@ -1,6 +1,7 @@
 import { fetchFile } from "@ffmpeg/util";
 
 import { getMediaBlob } from "@/services/file-storage";
+import { fetchMediaBlob } from "@/services/media-fetch";
 import { buildExtractAudioArgs, buildSegmentTrimArgs, SEGMENT_INPUT_NAME, SEGMENT_OUTPUT_NAME } from "./canvas-video-segment-args";
 import { loadFFmpeg } from "./canvas-video-merge";
 
@@ -35,9 +36,7 @@ async function readVideoSourceBlob(source: VideoSegmentSource) {
         if (stored) return stored;
     }
     if (source.url) {
-        const response = await fetch(source.url);
-        if (!response.ok) throw new Error(`视频资源请求失败（${response.status}）`);
-        return response.blob();
+        return fetchMediaBlob(source.url, "视频素材");
     }
     throw new Error("找不到视频素材，请重新上传后再操作");
 }

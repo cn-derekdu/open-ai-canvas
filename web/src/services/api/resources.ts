@@ -1,5 +1,6 @@
 import { getActiveUserScope } from "@/lib/user-scope";
 import { http, apiBaseURL, ApiError } from "@/services/api/request";
+import { fetchMediaBlob } from "@/services/media-fetch";
 import type { OSSConnectionTestInput, OSSConnectionTestResult, OSSProvider, S3Preset } from "@/lib/oss-settings";
 
 export type RemoteResource = {
@@ -408,9 +409,8 @@ export async function getResourceBlob(storageKey: string) {
     // session-bound, so a Blob read must include it even when the URL is
     // relative to the platform origin.
     const credentials = access.delivery === "platform-local" || access.delivery === "platform-proxy" ? "include" : "omit";
-    const response = await fetch(resolveResourceAccessURL(access.url), { credentials, mode: "cors" });
-    if (!response.ok) throw new Error(`资源读取失败（${response.status}）`);
-    return response.blob();
+    // 跨域读取失败的原文是英文「Failed to fetch」，这里换成人能照着做的说明。
+    return fetchMediaBlob(resolveResourceAccessURL(access.url), "资源", { credentials, mode: "cors" });
 }
 
 function extensionFromMime(mimeType: string, kind: string) {

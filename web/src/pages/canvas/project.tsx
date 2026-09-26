@@ -13,6 +13,7 @@ import { uploadMediaFile } from "@/services/file-storage";
 import { createCanvasGenerationLiveProjectAdapter, registerCanvasGenerationLiveProject } from "@/services/canvas-generation-consumer";
 import { getActiveUserScope } from "@/lib/user-scope";
 import { getResourceAccess, resolveResourceAccessURL, resourceFileUrl, resourceIdFromStorageKey, syncResourceToArkPrivateAsset } from "@/services/api/resources";
+import { fetchMediaBlob } from "@/services/media-fetch";
 import { uploadImage } from "@/services/image-storage";
 import { imageMetadata } from "@/lib/canvas/canvas-generation-task-sync";
 import { isCanvasImageSourceNode } from "@/lib/canvas/canvas-image-source";
@@ -196,9 +197,7 @@ async function copyImageToSystemClipboard(source: string, storageKey?: string) {
             if (!sourceBlob) throw new Error("图片资源读取失败");
         }
         if (!sourceBlob) {
-            const response = await fetch(source);
-            if (!response.ok) throw new Error(`图片读取失败（HTTP ${response.status}）`);
-            sourceBlob = await response.blob();
+            sourceBlob = await fetchMediaBlob(source, "图片");
         }
         return sourceBlob.type === "image/png" ? sourceBlob : await convertClipboardImageToPNG(sourceBlob);
     };
