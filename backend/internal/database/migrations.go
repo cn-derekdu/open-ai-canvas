@@ -11,7 +11,15 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 40
+// 本地二开：v16 已分配给 promotion_center 且线上库已应用，版本历史不可变；
+// 因此上游 v1.5.0 的 v16~v19 顺延为 v17~v20；上游后续新增的 v20~v23 顺延为 v21~v24，
+// v24~v27 继续顺延为 v25~v28，v28~v29 继续顺延为 v29~v30，v30~v31 继续顺延为 v31~v32，
+// v32 继续顺延为 v33，v33~v34 继续顺延为 v34~v35。
+// v36 为本地二开修复：sms_auth_verification 补回 sms/手机号验证特性的表与列，
+// 并同时并入上游 v35（auth_notifications）的建表需求——上游 v35 顺延后本应落在 v36，
+// 而 v36 已被二开占用，故合并为一个条目，不再单独登记上游 v35。
+// 上游后续新增版本仍按 +1 顺延（例如上游 v36 → 本地 v37）。
+const CurrentSchemaVersion int64 = 41
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -22,7 +30,8 @@ const resourcePlaybackChecksum = "sha256:resource-playback-v6-20260902"
 const assetLibraryFoldersChecksum = "sha256:asset-library-folders-v6-20260902"
 const logicalModelActiveCodeChecksum = "sha256:logical-model-active-code-v8-20260905"
 const creationRuntimeChecksum = "sha256:creation-runtime-v10-20260909"
-const authNotificationsChecksum = "sha256:auth-notifications-v35-20260924"
+const promotionCenterChecksum = "sha256:promotion-center-v16-20260916"
+const smsAuthVerificationChecksum = "sha256:sms-auth-verification-v36-20260923"
 const cloudAgentGeminiCacheChecksum = "sha256:cloud-agent-gemini-cache-v36-20260924"
 const cloudAgentGeminiCacheIdentityChecksum = "sha256:cloud-agent-gemini-cache-identity-v37-20260925"
 const prefixedIDSequenceReconcileChecksum = "sha256:prefixed-id-sequence-reconcile-v38-20260926"
@@ -73,47 +82,55 @@ var schemaMigrations = []migration{
 	{version: 15, name: "agent_profiles", checksum: "sha256:agent-profiles-v15-20260914", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.AgentProfile{})
 	}},
-	{version: 16, name: "agent_lessons", checksum: "sha256:agent-lessons-v16-20260917", apply: func(tx *gorm.DB) error {
+	{version: 16, name: "promotion_center", checksum: promotionCenterChecksum, apply: migrateSchemaV16},
+	// 下列 4 条来自上游 v1.5.0 的 v16~v19；因本地 v16 已被 promotion_center 占用而顺延编号，checksum 保持上游原值。
+	{version: 17, name: "agent_lessons", checksum: "sha256:agent-lessons-v16-20260917", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.AgentLesson{})
 	}},
-	{version: 17, name: "agent_lessons_owner_index", checksum: "sha256:agent-lessons-owner-index-v17-20260917", apply: func(tx *gorm.DB) error {
+	{version: 18, name: "agent_lessons_owner_index", checksum: "sha256:agent-lessons-owner-index-v17-20260917", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.AgentLesson{})
 	}},
-	{version: 18, name: "agent_memory_settings", checksum: "sha256:agent-memory-settings-v18-20260917", apply: func(tx *gorm.DB) error {
+	{version: 19, name: "agent_memory_settings", checksum: "sha256:agent-memory-settings-v18-20260917", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.AgentMemorySetting{})
 	}},
-	{version: 19, name: "payment_plugin_version", checksum: "sha256:payment-plugin-version-v19-20260917", apply: migrateSchemaV19},
-	{version: 20, name: "banner_announcements", checksum: "sha256:banner-announcements-v20-20260917", apply: func(tx *gorm.DB) error {
+	{version: 20, name: "payment_plugin_version", checksum: "sha256:payment-plugin-version-v19-20260917", apply: migrateSchemaV20},
+	// 下列 4 条来自上游 v1.5.0 之后的版本；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 21, name: "banner_announcements", checksum: "sha256:banner-announcements-v20-20260917", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.BannerAnnouncement{})
 	}},
-	{version: 21, name: "banner_announcement_title_runs", checksum: "sha256:banner-announcement-title-runs-v21-20260917", apply: func(tx *gorm.DB) error {
+	{version: 22, name: "banner_announcement_title_runs", checksum: "sha256:banner-announcement-title-runs-v21-20260917", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.BannerAnnouncement{})
 	}},
-	{version: 22, name: "banner_announcement_notice_type", checksum: "sha256:banner-announcement-notice-type-v22-20260917", apply: func(tx *gorm.DB) error {
+	{version: 23, name: "banner_announcement_notice_type", checksum: "sha256:banner-announcement-notice-type-v22-20260917", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.BannerAnnouncement{})
 	}},
-	{version: 23, name: "canvas_revision_history", checksum: "sha256:canvas-revision-history-v23-20260918", apply: func(tx *gorm.DB) error {
+	{version: 24, name: "canvas_revision_history", checksum: "sha256:canvas-revision-history-v23-20260918", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.CanvasProject{}, &model.CanvasSnapshot{}, &model.CanvasSnapshotResource{})
 	}},
-	{version: 24, name: "channel_model_label", checksum: "sha256:channel-model-label-v24", apply: migrateChannelModelLabel},
-	{version: 25, name: "video_token_formula_snapshot", checksum: "sha256:video-token-formula-snapshot-v25", apply: migrateVideoTokenFormulaSnapshot},
-	{version: 26, name: "channel_model_description", checksum: "sha256:channel-model-description-v26", apply: migrateChannelModelDescription},
-	{version: 27, name: "channel_credit_cost", checksum: "sha256:channel-credit-cost-v27", apply: migrateChannelCreditCost},
-	{version: 28, name: "agent_execution_journal", checksum: "sha256:agent-execution-journal-v28", apply: func(tx *gorm.DB) error {
+	// 下列 4 条来自上游 v1.5.4；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 25, name: "channel_model_label", checksum: "sha256:channel-model-label-v24", apply: migrateChannelModelLabel},
+	{version: 26, name: "video_token_formula_snapshot", checksum: "sha256:video-token-formula-snapshot-v25", apply: migrateVideoTokenFormulaSnapshot},
+	{version: 27, name: "channel_model_description", checksum: "sha256:channel-model-description-v26", apply: migrateChannelModelDescription},
+	{version: 28, name: "channel_credit_cost", checksum: "sha256:channel-credit-cost-v27", apply: migrateChannelCreditCost},
+	// 下列 2 条来自上游 v1.5.5；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 29, name: "agent_execution_journal", checksum: "sha256:agent-execution-journal-v28", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.CloudAgentExecution{}, &model.CloudAgentEventRecord{}, &model.CloudAgentMessageRecord{}, &model.Task{}, &model.BillingOrder{})
 	}},
-	{version: 29, name: "agent_resource_leases", checksum: "sha256:agent-resource-leases-v29-20260919", apply: func(tx *gorm.DB) error {
+	{version: 30, name: "agent_resource_leases", checksum: "sha256:agent-resource-leases-v29-20260919", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.CloudAgentResourceLease{})
 	}},
-	{version: 30, name: "builtin_tools", checksum: "sha256:builtin-tools-v30", apply: func(tx *gorm.DB) error {
+	// 下列 2 条来自上游（工具系统）；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 31, name: "builtin_tools", checksum: "sha256:builtin-tools-v30", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.Tool{})
 	}},
-	{version: 31, name: "tool_favorites", checksum: "sha256:tool-favorites-v31", apply: func(tx *gorm.DB) error {
+	{version: 32, name: "tool_favorites", checksum: "sha256:tool-favorites-v31", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.ToolFavorite{})
 	}},
-	{version: 32, name: "channel_model_tags", checksum: "sha256:channel-model-tags-v32", apply: migrateChannelModelTags},
-	{version: 33, name: "oauth_state_accepted_terms", checksum: "sha256:oauth-state-accepted-terms-v33", apply: migrateOAuthStateAcceptedTerms},
-	{version: 34, name: "task_media_recovery", checksum: "sha256:task-media-recovery-v34", apply: func(tx *gorm.DB) error {
+	// 下列 1 条来自上游（渠道模型标签）；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 33, name: "channel_model_tags", checksum: "sha256:channel-model-tags-v32", apply: migrateChannelModelTags},
+	// 下列 2 条来自上游；因本地编号已被占用而继续顺延，checksum 保持上游原值。
+	{version: 34, name: "oauth_state_accepted_terms", checksum: "sha256:oauth-state-accepted-terms-v33", apply: migrateOAuthStateAcceptedTerms},
+	{version: 35, name: "task_media_recovery", checksum: "sha256:task-media-recovery-v34", apply: func(tx *gorm.DB) error {
 		for _, field := range []string{"MediaRecoveryJSON", "MediaStage"} {
 			if !tx.Migrator().HasColumn(&model.Task{}, field) {
 				if err := tx.Migrator().AddColumn(&model.Task{}, field); err != nil {
@@ -123,39 +140,39 @@ var schemaMigrations = []migration{
 		}
 		return nil
 	}},
-	{version: 35, name: "auth_notifications", checksum: authNotificationsChecksum, apply: migrateSchemaV35},
-	{version: 36, name: "cloud_agent_gemini_cache", checksum: cloudAgentGeminiCacheChecksum, apply: func(tx *gorm.DB) error {
+	// 本地二开修复：短信/手机号验证特性只改动了 schema.go 基线，未登记迁移，
+	// 导致升级库永远拿不到这些表与列（登录接口会因 users.phone 不存在而 500）。
+	{version: 36, name: "sms_auth_verification", checksum: smsAuthVerificationChecksum, apply: migrateSchemaV36},
+	// 上游的 v36/37/38 顺延为 v37/38/39：本仓库 v34~v36 的编号与上游不同（线上 schema_migrations
+	// 已记录 34 oauth_state_accepted_terms / 35 task_media_recovery / 36 sms_auth_verification），
+	// 已上线的 v36 必须保持 name 与 checksum 一字不变，顺延只作用于尚未应用的新迁移。
+	{version: 37, name: "cloud_agent_gemini_cache", checksum: cloudAgentGeminiCacheChecksum, apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.CloudAgentGeminiCache{})
 	}},
-	{version: 37, name: "cloud_agent_gemini_cache_identity", checksum: cloudAgentGeminiCacheIdentityChecksum, apply: migrateCloudAgentGeminiCacheIdentity},
-	{version: 38, name: "prefixed_id_sequence_reconcile", checksum: prefixedIDSequenceReconcileChecksum, apply: migratePrefixedIDSequenceReconcile},
-	{version: 39, name: "skill_library_categories", checksum: skillLibraryCategoriesChecksum, apply: func(tx *gorm.DB) error {
+	{version: 38, name: "cloud_agent_gemini_cache_identity", checksum: cloudAgentGeminiCacheIdentityChecksum, apply: migrateCloudAgentGeminiCacheIdentity},
+	{version: 39, name: "prefixed_id_sequence_reconcile", checksum: prefixedIDSequenceReconcileChecksum, apply: migratePrefixedIDSequenceReconcile},
+	// 下列 2 条来自上游 v1.5.8 的 v39~v40；因本地 v39 已被 prefixed_id_sequence_reconcile 占用而顺延为 v40~v41，
+	// checksum 保持上游原值。上游 v35（auth_notifications）已并入本地 v36，不再单列。
+	{version: 40, name: "skill_library_categories", checksum: skillLibraryCategoriesChecksum, apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.SkillLibraryCategory{}, &model.UserSkillState{})
 	}},
-	{version: 40, name: "builtin_skill_tombstones", checksum: builtinSkillTombstonesChecksum, apply: func(tx *gorm.DB) error {
+	{version: 41, name: "builtin_skill_tombstones", checksum: builtinSkillTombstonesChecksum, apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.BuiltinSkillTombstone{})
 	}},
 }
 
-func migratePrefixedIDSequenceReconcile(tx *gorm.DB) error {
-	if err := tx.AutoMigrate(&model.IDSequence{}); err != nil {
-		return fmt.Errorf("创建可读 ID 序列表：%w", err)
+// migrateSchemaV36 补齐短信验证与认证通知特性依赖的持久化对象。
+// 内容为二开 sms_auth_verification 与上游 v35 auth_notifications 的并集：
+// 邮件验证码表（上游 v35 新增）以及短信/手机号相关的表、列、索引都在这里落地。
+// 只做增量：AutoMigrate 会新增缺失的表与列，不会删除既有数据。
+func migrateSchemaV36(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&model.User{}, &model.EmailVerificationCode{}, &model.SMSChannel{}, &model.SMSRecord{}, &model.AuthVerification{}, &model.NotificationQuota{}); err != nil {
+		return err
 	}
-	return reconcilePrefixedIDSequences(tx)
-}
-
-func migrateCloudAgentGeminiCacheIdentity(tx *gorm.DB) error {
-	// v36 accidentally made cache_key globally unique while repository reads and
-	// writes are user-scoped. Remove that index before creating the explicit
-	// (user_id, cache_key) identity used by the model tags.
-	for _, name := range []string{"idx_cloud_agent_gemini_caches_cache_key", "idx_cloud_agent_gemini_cache_cache_key"} {
-		if tx.Migrator().HasIndex(&model.CloudAgentGeminiCache{}, name) {
-			if err := tx.Migrator().DropIndex(&model.CloudAgentGeminiCache{}, name); err != nil {
-				return fmt.Errorf("删除 Gemini 缓存旧唯一索引 %s：%w", name, err)
-			}
-		}
+	if err := tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_nonempty ON users(phone) WHERE phone <> ''").Error; err != nil {
+		return err
 	}
-	return tx.AutoMigrate(&model.CloudAgentGeminiCache{})
+	return tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_nonempty ON users(lower(email)) WHERE email <> ''").Error
 }
 
 func migrateChannelModelTags(tx *gorm.DB) error {
@@ -215,6 +232,20 @@ func migrateChannelModelLabel(tx *gorm.DB) error {
 		return nil
 	}
 	return tx.Migrator().AddColumn(&model.ChannelModel{}, "ChannelLabel")
+}
+
+func migrateSchemaV16(tx *gorm.DB) error {
+	// 推广中心的邀请关系、返佣流水和提现申请都是新增表，不影响既有资金数据。
+	if err := tx.AutoMigrate(
+		&model.InviteCode{},
+		&model.Invitation{},
+		&model.CommissionRecord{},
+		&model.CommissionAllocation{},
+		&model.WithdrawalRequest{},
+	); err != nil {
+		return fmt.Errorf("创建推广中心结构：%w", err)
+	}
+	return nil
 }
 
 func migrateSchemaV14(tx *gorm.DB) error {
@@ -378,7 +409,7 @@ func migrateSchemaV5(tx *gorm.DB) error {
 	return nil
 }
 
-func migrateSchemaV19(tx *gorm.DB) error {
+func migrateSchemaV20(tx *gorm.DB) error {
 	for _, value := range []any{&model.PaymentProviderConfig{}, &model.PaymentOrder{}} {
 		if !tx.Migrator().HasTable(value) {
 			continue
@@ -562,4 +593,25 @@ func RequireSchemaVersion(db *gorm.DB) error {
 		return fmt.Errorf("数据库结构版本 %d 高于程序支持的 %d，拒绝使用旧程序连接新数据库", status.Current, status.Expected)
 	}
 	return nil
+}
+
+func migratePrefixedIDSequenceReconcile(tx *gorm.DB) error {
+	if err := tx.AutoMigrate(&model.IDSequence{}); err != nil {
+		return fmt.Errorf("创建可读 ID 序列表：%w", err)
+	}
+	return reconcilePrefixedIDSequences(tx)
+}
+
+func migrateCloudAgentGeminiCacheIdentity(tx *gorm.DB) error {
+	// v36 accidentally made cache_key globally unique while repository reads and
+	// writes are user-scoped. Remove that index before creating the explicit
+	// (user_id, cache_key) identity used by the model tags.
+	for _, name := range []string{"idx_cloud_agent_gemini_caches_cache_key", "idx_cloud_agent_gemini_cache_cache_key"} {
+		if tx.Migrator().HasIndex(&model.CloudAgentGeminiCache{}, name) {
+			if err := tx.Migrator().DropIndex(&model.CloudAgentGeminiCache{}, name); err != nil {
+				return fmt.Errorf("删除 Gemini 缓存旧唯一索引 %s：%w", name, err)
+			}
+		}
+	}
+	return tx.AutoMigrate(&model.CloudAgentGeminiCache{})
 }

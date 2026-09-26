@@ -46,87 +46,28 @@ func TestMigrateSchemaRecordsAndValidatesVersion(t *testing.T) {
 		t.Fatal("schema migration v15 did not create scoped Agent profiles")
 	}
 	if !db.Migrator().HasTable(&model.AgentLesson{}) || !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_status") {
-		t.Fatal("schema migration v16 did not create Agent lessons")
+		t.Fatal("schema migration v17 did not create Agent lessons")
 	}
 	if !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_author_status") {
-		t.Fatal("schema migration v17 did not create owner status index")
+		t.Fatal("schema migration v18 did not create owner status index")
 	}
 	if !db.Migrator().HasTable(&model.AgentMemorySetting{}) {
-		t.Fatal("schema migration v18 did not create agent memory settings")
+		t.Fatal("schema migration v19 did not create agent memory settings")
 	}
 	if !db.Migrator().HasColumn(&model.PaymentProviderConfig{}, "plugin_version") || !db.Migrator().HasColumn(&model.PaymentOrder{}, "plugin_version") {
-		t.Fatal("schema migration v19 did not add payment plugin version columns")
+		t.Fatal("schema migration v20 did not add payment plugin version columns")
 	}
 	if !db.Migrator().HasTable(&model.BannerAnnouncement{}) {
-		t.Fatal("schema migration v20 did not create banner announcements")
+		t.Fatal("schema migration v21 did not create banner announcements")
 	}
 	if !db.Migrator().HasColumn(&model.BannerAnnouncement{}, "title_runs") {
-		t.Fatal("schema migration v21 did not create banner announcements title_runs")
+		t.Fatal("schema migration v22 did not create banner announcements title_runs")
 	}
 	if !db.Migrator().HasColumn(&model.BannerAnnouncement{}, "notice_type") {
-		t.Fatal("schema migration v22 did not create banner announcements notice_type")
-	}
-	if !db.Migrator().HasTable(&model.AuthVerification{}) ||
-		!db.Migrator().HasTable(&model.NotificationQuota{}) ||
-		!db.Migrator().HasTable(&model.SMSChannel{}) ||
-		!db.Migrator().HasTable(&model.SMSRecord{}) {
-		t.Fatal("schema migration v35 did not create auth notification tables")
-	}
-	if !db.Migrator().HasColumn(&model.User{}, "phone") ||
-		!db.Migrator().HasColumn(&model.User{}, "email_verified_at") ||
-		!db.Migrator().HasColumn(&model.User{}, "phone_verified_at") ||
-		!db.Migrator().HasColumn(&model.EmailVerificationCode{}, "attempts") {
-		t.Fatal("schema migration v35 did not add authentication verification fields")
-	}
-	if !db.Migrator().HasTable(&model.CloudAgentGeminiCache{}) {
-		t.Fatal("schema migration v36 did not create Gemini cache table")
+		t.Fatal("schema migration v23 did not create banner announcements notice_type")
 	}
 	if err := MigrateSchema(db); err != nil {
 		t.Fatalf("migration should be idempotent: %v", err)
-	}
-}
-
-func TestMigrateSchemaV35UpgradesExistingDatabase(t *testing.T) {
-	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-auth-notifications-v35?mode=memory&cache=shared"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := MigrateSchema(db); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, table := range []any{&model.AuthVerification{}, &model.NotificationQuota{}, &model.SMSChannel{}, &model.SMSRecord{}} {
-		if err := db.Migrator().DropTable(table); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, column := range []string{"phone", "email_verified_at", "phone_verified_at"} {
-		if err := db.Migrator().DropColumn(&model.User{}, column); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := db.Migrator().DropColumn(&model.EmailVerificationCode{}, "attempts"); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Where("version = ?", 35).Delete(&schemaMigration{}).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	if err := MigrateSchema(db); err != nil {
-		t.Fatalf("upgrade from v34: %v", err)
-	}
-	for _, table := range []any{&model.AuthVerification{}, &model.NotificationQuota{}, &model.SMSChannel{}, &model.SMSRecord{}} {
-		if !db.Migrator().HasTable(table) {
-			t.Fatalf("migration v35 did not restore table %T", table)
-		}
-	}
-	for _, column := range []string{"phone", "email_verified_at", "phone_verified_at"} {
-		if !db.Migrator().HasColumn(&model.User{}, column) {
-			t.Fatalf("migration v35 did not restore users.%s", column)
-		}
-	}
-	if !db.Migrator().HasColumn(&model.EmailVerificationCode{}, "attempts") {
-		t.Fatal("migration v35 did not restore email verification attempts")
 	}
 }
 
@@ -151,6 +92,7 @@ func TestMigrateSchemaV15UpgradesExistingDatabase(t *testing.T) {
 		t.Fatal("v15 upgrade did not install Agent profile table and scope index")
 	}
 	status, err := ReadSchemaStatus(db)
+	// 该用例验证从 v14 继续升级：补跑 v15 后应一路升到程序支持的最新版本。
 	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
 		t.Fatalf("unexpected upgraded schema status: %+v, %v", status, err)
 	}
@@ -167,14 +109,14 @@ func TestMigrateSchemaV16UpgradesExistingDatabase(t *testing.T) {
 	if err := db.Migrator().DropTable(&model.AgentLesson{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 16).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 17).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
-		t.Fatalf("upgrade from v15: %v", err)
+		t.Fatalf("upgrade from v16: %v", err)
 	}
 	if !db.Migrator().HasTable(&model.AgentLesson{}) || !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_status") {
-		t.Fatal("v16 upgrade did not install Agent lesson table and status index")
+		t.Fatal("v17 upgrade did not install Agent lesson table and status index")
 	}
 	status, err := ReadSchemaStatus(db)
 	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
@@ -193,14 +135,14 @@ func TestMigrateSchemaV17UpgradesExistingDatabase(t *testing.T) {
 	if err := db.Migrator().DropIndex(&model.AgentLesson{}, "idx_agent_lessons_author_status"); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 17).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 18).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
-		t.Fatalf("upgrade from v16: %v", err)
+		t.Fatalf("upgrade from v17: %v", err)
 	}
 	if !db.Migrator().HasIndex(&model.AgentLesson{}, "idx_agent_lessons_author_status") {
-		t.Fatal("v17 upgrade did not install owner status index")
+		t.Fatal("v18 upgrade did not install owner status index")
 	}
 	status, err := ReadSchemaStatus(db)
 	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
@@ -219,14 +161,14 @@ func TestMigrateSchemaV18UpgradesExistingDatabase(t *testing.T) {
 	if err := db.Migrator().DropTable(&model.AgentMemorySetting{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 18).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 19).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
-		t.Fatalf("upgrade from v17: %v", err)
+		t.Fatalf("upgrade from v18: %v", err)
 	}
 	if !db.Migrator().HasTable(&model.AgentMemorySetting{}) {
-		t.Fatal("v18 upgrade did not install agent memory settings")
+		t.Fatal("v19 upgrade did not install agent memory settings")
 	}
 	status, err := ReadSchemaStatus(db)
 	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
@@ -248,17 +190,17 @@ func TestMigrateSchemaV19AddsPaymentPluginVersion(t *testing.T) {
 	if err := db.Migrator().DropColumn(&model.PaymentOrder{}, "PluginVersion"); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 19).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 20).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
-		t.Fatalf("upgrade from v18: %v", err)
+		t.Fatalf("upgrade from v19: %v", err)
 	}
 	if !db.Migrator().HasColumn(&model.PaymentProviderConfig{}, "plugin_version") {
-		t.Fatal("v19 upgrade did not add payment_provider_configs.plugin_version")
+		t.Fatal("v20 upgrade did not add payment_provider_configs.plugin_version")
 	}
 	if !db.Migrator().HasColumn(&model.PaymentOrder{}, "plugin_version") {
-		t.Fatal("v19 upgrade did not add payment_orders.plugin_version")
+		t.Fatal("v20 upgrade did not add payment_orders.plugin_version")
 	}
 	status, err := ReadSchemaStatus(db)
 	if err != nil || !status.Ready || status.Current != CurrentSchemaVersion {
@@ -277,11 +219,11 @@ func TestMigrateSchemaV20UpgradesExistingDatabaseWithBannerAnnouncements(t *test
 	if !db.Migrator().HasTable(&model.BannerAnnouncement{}) {
 		t.Fatal("v20 migration did not create banner_announcements table")
 	}
-	// 模拟旧库升级：删表 + 删除 v20 记录，重跑迁移应能重建。
+	// 模拟旧库升级：删表 + 删除 v21 记录，重跑迁移应能重建。
 	if err := db.Migrator().DropTable(&model.BannerAnnouncement{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 20).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 21).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -314,7 +256,7 @@ func TestMigrateSchemaV21AddsBannerAnnouncementTitleRuns(t *testing.T) {
 	if err := db.Migrator().DropColumn(&model.BannerAnnouncement{}, "title_runs"); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 21).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 22).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -354,7 +296,7 @@ func TestMigrateSchemaV22AddsBannerAnnouncementNoticeType(t *testing.T) {
 	if err := db.Migrator().DropColumn(&model.BannerAnnouncement{}, "notice_type"); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 22).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 23).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -393,7 +335,7 @@ func TestMigrateSchemaV23BackfillsCanvasRevisions(t *testing.T) {
 	if err := db.Exec(`INSERT INTO canvas_projects (id, user_id, title, payload_json) VALUES ('legacy', 'owner', 'Existing canvas', '{"nodes":[]}')`).Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Where("version = ?", 23).Delete(&schemaMigration{}).Error; err != nil {
+	if err := db.Where("version = ?", 24).Delete(&schemaMigration{}).Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := MigrateSchema(db); err != nil {
@@ -704,7 +646,7 @@ func TestToolsUpgradeFromMain29PreservesMigrationChecksums(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range schemaMigrations {
-		if item.version > 29 {
+		if item.version > 30 {
 			break
 		}
 		if err := item.apply(db); err != nil {
@@ -714,8 +656,8 @@ func TestToolsUpgradeFromMain29PreservesMigrationChecksums(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// The initial migration uses today's model registry; restore the actual v29
-	// boundary so this test proves that v30/v31 create the new tables.
+	// The initial migration uses today's model registry; restore the actual v30
+	// boundary so this test proves that v31/v32 create the new tables.
 	if err := db.Migrator().DropTable(&model.ToolFavorite{}, &model.Tool{}); err != nil {
 		t.Fatal(err)
 	}
@@ -727,12 +669,12 @@ func TestToolsUpgradeFromMain29PreservesMigrationChecksums(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, version := range []int64{28, 29} {
+	for _, version := range []int64{29, 30} {
 		var record schemaMigration
 		if err := db.First(&record, version).Error; err != nil {
 			t.Fatal(err)
 		}
-		expected := map[int64]string{28: "sha256:agent-execution-journal-v28", 29: "sha256:agent-resource-leases-v29-20260919"}
+		expected := map[int64]string{29: "sha256:agent-execution-journal-v28", 30: "sha256:agent-resource-leases-v29-20260919"}
 		if record.Checksum != expected[version] {
 			t.Fatal("main checksum changed")
 		}

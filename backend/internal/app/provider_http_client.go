@@ -393,11 +393,6 @@ func doBinaryWithConsumer(req *http.Request, onChunk func(string, []byte)) ([]by
 	return data, mimeType, nil
 }
 
-func providerRequestKindFromContext(ctx context.Context) string {
-	metadata, _ := ctx.Value(providerAnalyticsKey{}).(providerAnalyticsContext)
-	return strings.TrimSpace(metadata.RequestKind)
-}
-
 func providerConnectionError(err error) error {
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return fmt.Errorf("模型服务连接提前关闭，未收到完整结果；请先核对中转站任务和扣费记录，再决定是否重试：%w", err)

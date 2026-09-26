@@ -45,14 +45,11 @@ func TestPluginViewIncludesDocumentationForEveryOfficialProtocol(t *testing.T) {
 		}
 		packageIDs[pkg.Manifest.Metadata.ID] = true
 	}
+	// 支付与短信插件都是宿主内置贡献且没有独立 .yingce-plugin 产物，必须一起计入期望值：
+	// 加载器新增一类内置插件而不更新这里，断言就会失真。
+	// 注意只能计一次：本仓库曾另起一个 SMS 循环（上游把它并进了这一行），两边同时保留会把
+	// 阿里云/腾讯云重复计入，期望值虚高两个。
 	for _, manifest := range append(bundledPaymentPluginManifests(), bundledSMSPluginManifests()...) {
-		if !packageIDs[manifest.Metadata.ID] {
-			bundledCount++
-		}
-	}
-	// 短信插件（阿里云/腾讯云）同样是宿主内置贡献，且没有独立 .yingce-plugin 产物，
-	// 必须一起计入期望值：加载器新增一类内置插件而不更新这里，断言就会失真。
-	for _, manifest := range bundledSMSPluginManifests() {
 		if !packageIDs[manifest.Metadata.ID] {
 			bundledCount++
 		}

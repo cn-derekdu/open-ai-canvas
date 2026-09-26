@@ -9,6 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// smsAuthVerificationMigrationName 是补回短信验证对象的那个迁移，测试按名字定位它。
+const smsAuthVerificationMigrationName = "sms_auth_verification"
+
 // legacySMSAuthDatabase 复现线上故障现场：数据库已应用到 v35，但物理结构缺少
 // 短信/手机号验证特性依赖的表与列（该特性只改了 schema.go 基线，未登记迁移）。
 func legacySMSAuthDatabase(t *testing.T) *gorm.DB {
@@ -27,10 +30,11 @@ func legacySMSAuthDatabase(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 	// 应用除 v36 之外的全部迁移，随后抹掉短信验证特性引入的对象。
-	plan := schemaMigrations[:len(schemaMigrations)-1]
-	for _, item := range plan {
-		if item.version == CurrentSchemaVersion {
-			t.Fatalf("v%d 应是最新迁移之外的条目", item.version)
+	// 按迁移名定位而不是"最后一条"：后续新增迁移（如 v37~v39）会让此前那个假设失效，
+	// 把 v36 也应用掉，于是真正迁移时被记录为已完成，短信对象永远补不回来。
+	for _, item := range schemaMigrations {
+		if item.name == smsAuthVerificationMigrationName {
+			continue
 		}
 		if err := item.apply(db); err != nil {
 			t.Fatal(err)
