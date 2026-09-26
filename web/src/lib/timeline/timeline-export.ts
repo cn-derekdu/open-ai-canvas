@@ -4,6 +4,7 @@ import { fetchFile } from "@ffmpeg/util";
 
 import { loadFFmpeg } from "@/lib/canvas/canvas-video-merge";
 import { getMediaBlob } from "@/services/file-storage";
+import { fetchMediaBlob } from "@/services/media-fetch";
 import type { TimelineProject } from "@/types/timeline";
 import { SUBTITLE_FILE, buildSubtitleSrt, buildTimelineRenderPlan, getOrderedSubtitleClips, type TimelineRenderContext, type TimelineRenderSource } from "./timeline-to-ffmpeg";
 
@@ -24,9 +25,7 @@ async function fetchSourceBlob(source: TimelineRenderSource): Promise<Blob> {
         if (stored) return stored;
     }
     if (source.url) {
-        const response = await fetch(source.url);
-        if (!response.ok) throw new Error("视频资源请求失败（" + response.status + "）");
-        return response.blob();
+        return fetchMediaBlob(source.url, "成片素材");
     }
     throw new Error("找不到素材 " + source.nodeId + " 的媒体文件");
 }
