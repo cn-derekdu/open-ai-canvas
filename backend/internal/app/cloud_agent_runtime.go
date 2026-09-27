@@ -1701,6 +1701,15 @@ func (s *Service) advanceCloudAgentTool(run *model.CloudAgentExecution, state *c
 	}
 	allowed := cloudAgentToolAllowed(state.Request, call.Function.Name)
 	mediaTool := call.Function.Name == "generate_media" || call.Function.Name == "image_layer_split"
+	// 媒体任务已在出片：这一拍必须回到"等待/完成"分支（审批模式一直走的就是这条，见下方
+	// state.Approval.Decision == "approve" 的分派），绝不能重新进入写工具准入/提交分支。
+	// 否则 cloudAgentMediaError(..., submitted=false, ...) 会把游标推过批次末尾而
+	// MediaTaskID 仍挂着，检查点校验以 "media task is not attached to current call" 拒绝保存
+	// → 整轮被 terminate 成 failed，并且把正在出片的成片一起取消（2026-09-27 线上事故：
+	// auto 模式提交媒体任务后必中，7/7）。
+	if mediaTool && state.MediaTaskID != "" {
+		return s.advanceCloudAgentMedia(run, state, cloudAgentMediaCall(call))
+	}
 	if allowed && cloudAgentWrite(call.Function.Name) && (state.Request.PermissionMode == "request_approval" || mediaTool) && state.Approval == nil {
 		var plan *cloudAgentMediaPlan
 		var modelName string
