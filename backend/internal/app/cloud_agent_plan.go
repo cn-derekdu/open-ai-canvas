@@ -255,6 +255,19 @@ func cloudAgentAskUser(call cloudAgentCall, states ...*cloudAgentRuntime) (any, 
 // 完整（每个声明的 tool_call_id 都有回执），但本轮就此结束、不会再走 advanceCloudAgent
 // 的兜底 flush，少了这一步缓冲的图片会被丢掉。
 func skipRemainingCloudAgentCalls(runID string, state *cloudAgentRuntime) {
+	// 游标一旦推过本批末尾，MediaTaskID 就不再挂在"当前调用"上：检查点校验会判定
+	// "media task is not attached to current call" 并拒绝保存，整轮被误报成
+	// "Agent 上下文或执行记录超过安全限制"而中止（2026-09-27 线上复现：同一批里先
+	// generate_media 提交任务、紧接着 ask_user 结束本轮）。
+	// 本批已提交但尚未出片的媒体任务必须先解绑：任务本身不会被取消，成片照常进任务中心
+	// 并由画布任务同步回写节点，只是本轮不再由 Agent 侧回写。
+	if state.MediaTaskID != "" {
+		state.event(runID, "media_task_detached", map[string]any{
+			"taskId": state.MediaTaskID,
+			"text":   "媒体任务仍在出片，本轮先结束；成片会进入任务中心并回写画布节点",
+		})
+		state.MediaTaskID = ""
+	}
 	for index := state.CallIndex + 1; index < len(state.Calls); index++ {
 		cloudAgentToolResult(runID, state, state.Calls[index], map[string]any{"skipped": true}, BadAuthRequest("本轮已结束（等待用户决定），该调用未执行"))
 	}
