@@ -47,14 +47,7 @@ test("leaves fenced code blocks untouched", () => {
 });
 
 test("renders an agent node link as a titled inline node card", () => {
-    const html = renderToStaticMarkup(
-        <AgentChatMessage
-            item={assistantMessage("新节点 ID：video-1790385749473-q4157")}
-            theme={canvasThemes.dark}
-            references={[videoReference]}
-            onFocusNode={() => {}}
-        />,
-    );
+    const html = renderToStaticMarkup(<AgentChatMessage item={assistantMessage("新节点 ID：video-1790385749473-q4157")} theme={canvasThemes.dark} references={[videoReference]} onFocusNode={() => {}} />);
     const visibleText = html.replace(/<[^>]+>/gu, "");
 
     expect(html).toContain('class="agent-message-node-link"');

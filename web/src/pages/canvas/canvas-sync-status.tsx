@@ -84,7 +84,9 @@ export function CanvasSyncStatus({ projectId, onLoadLatest, onOpenVersions }: { 
                             <strong>{label}</strong>
                         </div>
                     </div>
-                    <p className="canvas-sync-panel__description" role="status">{description}</p>
+                    <p className="canvas-sync-panel__description" role="status">
+                        {description}
+                    </p>
                     {conflict ? (
                         <div className="canvas-sync-panel__callout">
                             <strong>先保护本地，再决定版本</strong>
@@ -93,11 +95,7 @@ export function CanvasSyncStatus({ projectId, onLoadLatest, onOpenVersions }: { 
                     ) : error ? (
                         <div className="canvas-sync-panel__callout">
                             <strong>{retryScheduled ? "本地内容仍在，正在等待重试" : "本地内容仍在，未覆盖云端"}</strong>
-                            <span>
-                                {retryScheduled
-                                    ? "网络恢复后会自动重试；也可以点击“立即重试”。"
-                                    : "请处理上面的错误后点击“立即重试”；在此之前本地内容不会被覆盖。"}
-                            </span>
+                            <span>{retryScheduled ? "网络恢复后会自动重试；也可以点击“立即重试”。" : "请处理上面的错误后点击“立即重试”；在此之前本地内容不会被覆盖。"}</span>
                         </div>
                     ) : null}
                     <div className="canvas-sync-panel__actions">
@@ -107,17 +105,16 @@ export function CanvasSyncStatus({ projectId, onLoadLatest, onOpenVersions }: { 
                                 block
                                 icon={<RefreshCw className="size-3.5" />}
                                 loading={busy}
-                                onClick={() => void run(() => retryRemoteUserDataSync(projectId)).then(() => setStatusOpen(false)).catch(() => undefined)}
+                                onClick={() =>
+                                    void run(() => retryRemoteUserDataSync(projectId))
+                                        .then(() => setStatusOpen(false))
+                                        .catch(() => undefined)
+                                }
                             >
                                 立即重试
                             </Button>
                         ) : null}
-                        <Button
-                            block
-                            icon={<CloudOff className="size-3.5" />}
-                            disabled={busy || saving}
-                            onClick={confirmLoadLatest}
-                        >
+                        <Button block icon={<CloudOff className="size-3.5" />} disabled={busy || saving} onClick={confirmLoadLatest}>
                             加载云端版
                         </Button>
                         <div className="canvas-sync-panel__secondary-actions">

@@ -7,7 +7,10 @@
     border: 1px solid transparent;
     border-radius: 999px;
     color: var(--user-ink-muted, var(--muted-foreground));
-    transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+    transition:
+        border-color 160ms ease,
+        background 160ms ease,
+        color 160ms ease;
 }
 
 .canvas-sync-status-trigger:hover,
@@ -16,10 +19,16 @@
     color: var(--user-ink, var(--foreground));
 }
 
-.canvas-sync-status-trigger--done { color: var(--status-success, #3f8f68); }
-.canvas-sync-status-trigger--pending { color: var(--status-warning, #b7791f); }
+.canvas-sync-status-trigger--done {
+    color: var(--status-success, #3f8f68);
+}
+.canvas-sync-status-trigger--pending {
+    color: var(--status-warning, #b7791f);
+}
 .canvas-sync-status-trigger--error,
-.canvas-sync-status-trigger--conflict { color: var(--status-error, var(--destructive)); }
+.canvas-sync-status-trigger--conflict {
+    color: var(--status-error, var(--destructive));
+}
 
 .canvas-sync-popover .ant-popover-inner {
     overflow: hidden;
@@ -30,7 +39,9 @@
     box-shadow: 0 18px 48px color-mix(in srgb, var(--user-ink, var(--foreground)) 16%, transparent);
 }
 
-.canvas-sync-popover .ant-popover-inner-content { padding: 0; }
+.canvas-sync-popover .ant-popover-inner-content {
+    padding: 0;
+}
 
 .canvas-sync-panel {
     width: min(340px, calc(100vw - 32px));
@@ -55,21 +66,39 @@
     color: var(--user-ink-muted, var(--muted-foreground));
 }
 
-.canvas-sync-panel__status-icon svg { width: 17px; height: 17px; }
-.canvas-sync-panel--done .canvas-sync-panel__status-icon { background: color-mix(in srgb, var(--status-success, #3f8f68) 13%, transparent); color: var(--status-success, #3f8f68); }
-.canvas-sync-panel--pending .canvas-sync-panel__status-icon { background: color-mix(in srgb, var(--status-warning, #b7791f) 14%, transparent); color: var(--status-warning, #b7791f); }
+.canvas-sync-panel__status-icon svg {
+    width: 17px;
+    height: 17px;
+}
+.canvas-sync-panel--done .canvas-sync-panel__status-icon {
+    background: color-mix(in srgb, var(--status-success, #3f8f68) 13%, transparent);
+    color: var(--status-success, #3f8f68);
+}
+.canvas-sync-panel--pending .canvas-sync-panel__status-icon {
+    background: color-mix(in srgb, var(--status-warning, #b7791f) 14%, transparent);
+    color: var(--status-warning, #b7791f);
+}
 .canvas-sync-panel--error .canvas-sync-panel__status-icon,
-.canvas-sync-panel--conflict .canvas-sync-panel__status-icon { background: color-mix(in srgb, var(--status-error, var(--destructive)) 13%, transparent); color: var(--status-error, var(--destructive)); }
+.canvas-sync-panel--conflict .canvas-sync-panel__status-icon {
+    background: color-mix(in srgb, var(--status-error, var(--destructive)) 13%, transparent);
+    color: var(--status-error, var(--destructive));
+}
 
-.canvas-sync-panel__heading { min-width: 0; }
+.canvas-sync-panel__heading {
+    min-width: 0;
+}
 .canvas-sync-panel__eyebrow {
     display: block;
     margin-bottom: 2px;
     color: var(--user-ink-soft, var(--muted-foreground));
     font-size: 11px;
-    letter-spacing: .04em;
+    letter-spacing: 0.04em;
 }
-.canvas-sync-panel__heading strong { display: block; font-size: 14px; font-weight: 650; }
+.canvas-sync-panel__heading strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 650;
+}
 
 .canvas-sync-panel__description {
     margin: 0;
@@ -91,15 +120,23 @@
     font-size: 11px;
     line-height: 1.55;
 }
-.canvas-sync-panel--error .canvas-sync-panel__callout { border-color: color-mix(in srgb, var(--status-error, var(--destructive)) 25%, var(--user-border, var(--border))); background: color-mix(in srgb, var(--status-error, var(--destructive)) 7%, var(--user-surface, var(--background))); }
-.canvas-sync-panel__callout strong { color: var(--user-ink, var(--foreground)); font-size: 12px; }
+.canvas-sync-panel--error .canvas-sync-panel__callout {
+    border-color: color-mix(in srgb, var(--status-error, var(--destructive)) 25%, var(--user-border, var(--border)));
+    background: color-mix(in srgb, var(--status-error, var(--destructive)) 7%, var(--user-surface, var(--background)));
+}
+.canvas-sync-panel__callout strong {
+    color: var(--user-ink, var(--foreground));
+    font-size: 12px;
+}
 
 .canvas-sync-panel__actions {
     display: grid;
     gap: 8px;
     padding: 0 17px 15px;
 }
-.canvas-sync-panel__actions .ant-btn { border-radius: 9px; }
+.canvas-sync-panel__actions .ant-btn {
+    border-radius: 9px;
+}
 .canvas-sync-panel__secondary-actions {
     display: flex;
     justify-content: space-between;
@@ -112,12 +149,26 @@
     color: var(--user-ink-muted, var(--muted-foreground));
     font-size: 11px;
 }
-.canvas-sync-panel__secondary-actions .ant-btn:hover { color: var(--user-ink, var(--foreground)); background: var(--user-surface-hover, var(--accent)); }
+.canvas-sync-panel__secondary-actions .ant-btn:hover {
+    color: var(--user-ink, var(--foreground));
+    background: var(--user-surface-hover, var(--accent));
+}
 
-.canvas-sync-confirm-copy p { margin: 0 0 8px; line-height: 1.65; }
-.canvas-sync-confirm-copy p:last-child { margin-bottom: 0; color: var(--muted-foreground); font-size: 12px; }
-.canvas-sync-modal-icon { color: var(--status-warning, #b7791f); }
+.canvas-sync-confirm-copy p {
+    margin: 0 0 8px;
+    line-height: 1.65;
+}
+.canvas-sync-confirm-copy p:last-child {
+    margin-bottom: 0;
+    color: var(--muted-foreground);
+    font-size: 12px;
+}
+.canvas-sync-modal-icon {
+    color: var(--status-warning, #b7791f);
+}
 
 @media (prefers-reduced-motion: reduce) {
-    .canvas-sync-status-trigger { transition: none; }
+    .canvas-sync-status-trigger {
+        transition: none;
+    }
 }
