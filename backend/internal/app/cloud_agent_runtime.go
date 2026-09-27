@@ -858,6 +858,9 @@ func (s *Service) wakeCloudAgentScheduler() {
 func (s *Service) advanceCloudAgent(run *model.CloudAgentExecution) (err error) {
 	defer func() {
 		if errors.Is(err, errCloudAgentCheckpoint) {
+			// 这里把检查点被拒的真实原因写进后端日志：对外只保留统一文案（不泄露内部状态），
+			// 但没有这行日志时，一次拒绝在线上是完全静默的，只能靠反推。
+			log.Printf("[cloud-agent] run %s checkpoint rejected: %v", run.ID, err)
 			err = s.terminateCloudAgent(run, "Agent 上下文或执行记录超过安全限制，本轮已停止；已有任务结果保留在任务中心")
 		}
 	}()
