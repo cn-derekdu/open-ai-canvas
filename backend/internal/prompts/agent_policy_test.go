@@ -10,9 +10,9 @@ func TestLoadAgentPoliciesUsesDocumentMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// system 版本高于上游：本仓库在系统策略里保留了「审批与权限模式」一节（审批误报修复的一半，
-	// 用于让模型理解 approval_claim 与 auto 模式没有审批卡）。改这个数字必须同时改 md 的 front matter。
-	if system.ID != "cloud-agent-system" || system.Version != 11 || media.ID != "cloud-agent-media" || media.Version != 4 {
+	// 上游本轮把系统策略改到 12（ask_user.fields 动态表单），本仓库另有「审批与权限模式」一节，
+	// 两侧内容已合并，故取 13。改这个数字必须同时改 md 的 front matter。
+	if system.ID != "cloud-agent-system" || system.Version != 13 || media.ID != "cloud-agent-media" || media.Version != 4 {
 		t.Fatalf("unexpected policy metadata: system=%+v media=%+v", system, media)
 	}
 	if strings.Contains(system.Text, "id: cloud-agent-system") || !strings.HasPrefix(system.Text, "# 影策 Cloud Agent") {
