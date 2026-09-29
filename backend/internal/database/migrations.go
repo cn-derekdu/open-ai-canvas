@@ -19,7 +19,9 @@ import (
 // 并同时并入上游 v35（auth_notifications）的建表需求——上游 v35 顺延后本应落在 v36，
 // 而 v36 已被二开占用，故合并为一个条目，不再单独登记上游 v35。
 // 上游后续新增版本仍按 +1 顺延（例如上游 v36 → 本地 v37）。
-const CurrentSchemaVersion int64 = 41
+// 本次同步（上游 d22f678d）：上游 v41 resource_thumbnail → 本地 v42，
+// 上游 v42 cloud_agent_pi_sessions → 本地 v43（checksum 一律保持上游原值）。
+const CurrentSchemaVersion int64 = 43
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -37,6 +39,7 @@ const cloudAgentGeminiCacheIdentityChecksum = "sha256:cloud-agent-gemini-cache-i
 const prefixedIDSequenceReconcileChecksum = "sha256:prefixed-id-sequence-reconcile-v38-20260926"
 const skillLibraryCategoriesChecksum = "sha256:skill-library-categories-v39-20260926"
 const builtinSkillTombstonesChecksum = "sha256:builtin-skill-tombstones-v40-20260927"
+const resourceThumbnailChecksum = "sha256:resource-thumbnail-v41-20260927"
 
 const postgresSchemaMigrationLockID int64 = 73123910420260830
 
@@ -158,6 +161,14 @@ var schemaMigrations = []migration{
 	}},
 	{version: 41, name: "builtin_skill_tombstones", checksum: builtinSkillTombstonesChecksum, apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.BuiltinSkillTombstone{})
+	}},
+	// 下列 2 条来自上游 v1.5.8 之后的 v41~v42；因本地版本号整体 +1 顺延，落为 v42~v43，
+	// checksum 保持上游原值。
+	{version: 42, name: "resource_thumbnail", checksum: resourceThumbnailChecksum, apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.Resource{})
+	}},
+	{version: 43, name: "cloud_agent_pi_sessions", checksum: "sha256:cloud-agent-pi-sessions-v42-20260928", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.CloudAgentPiSession{})
 	}},
 }
 
