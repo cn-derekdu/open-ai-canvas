@@ -44,6 +44,12 @@ services:
       YINGCE_AGENT_TOKEN: ${YINGCE_AGENT_TOKEN:?请先配置 YINGCE_AGENT_TOKEN}
       MAX_CONCURRENT_SESSIONS: ${YINGCE_AGENT_MAX_SESSIONS:-30}
       NODE_MAX_OLD_SPACE_SIZE: ${YINGCE_AGENT_NODE_MEMORY_MB:-512}
+    volumes:
+      # 会话目录由后端下发（/data/pi-sessions，见 cloud_agent_pi_coordinator.go）。
+      # agent 容器以 uid 100(app) 运行，镜像内没有 /data，缺这个卷会以
+      # "EACCES: permission denied, mkdir '/data/pi-sessions'" 让整轮 Agent 会话失败。
+      # 与 backend 共用同一卷：两边都是 uid 100，权限天然一致。
+      - ${CANVAS_DATA_PATH:-backend-data}:/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/healthz"]
       interval: 10s
