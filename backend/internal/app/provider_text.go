@@ -532,6 +532,22 @@ func (p *streamingAgentParser) consumeFrames(flush bool) {
 	}
 }
 
+// sseFrameSnippetLimit 是解析失败时随错误/日志带出的原始帧字节上限。
+// 取 400 字节足够看清是哪种脏数据（多段 JSON 拼接、非 JSON 提示文本、HTML 片头等）。
+const sseFrameSnippetLimit = 400
+
+// sseFrameSnippet 生成解析失败现场的原始帧摘要。
+// 只有 "invalid character 'i' after object key" 这类错误时无法定位脏数据来自哪里，
+// 上游中转返回畸形 SSE 曾因此排查无据，故把原始帧一并带出。
+// %q 会转义换行与控制字符，日志里仍是单行；截断不会切断排查所需的"第一处异常"。
+func sseFrameSnippet(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if len(trimmed) <= sseFrameSnippetLimit {
+		return fmt.Sprintf("%q", trimmed)
+	}
+	return fmt.Sprintf("%q…（原始 %d 字节，此处截断）", trimmed[:sseFrameSnippetLimit], len(trimmed))
+}
+
 func (p *streamingAgentParser) consumeFrame(frame string) {
 	var eventName string
 	var dataLines []string
@@ -549,7 +565,10 @@ func (p *streamingAgentParser) consumeFrame(frame string) {
 	}
 	var payload map[string]interface{}
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-		p.err = fmt.Errorf("Agent 流式事件解析失败：%w", err)
+		// 同时写日志（docker logs 可见）与错误文本（落库到 tasks.error / task_logs.payload）。
+		message := fmt.Errorf("Agent 流式事件解析失败：%w；原始帧=%s", err, sseFrameSnippet(raw))
+		log.Printf("[provider] run 流式事件解析失败：%v", message)
+		p.err = message
 		return
 	}
 	if err := validateTextPayload(payload); err != nil {
@@ -1194,7 +1213,9 @@ func parseTextEventStream(data []byte, protocol string) (string, error) {
 		}
 		var payload map[string]interface{}
 		if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-			return fmt.Errorf("流式文本事件解析失败：%w", err)
+			message := fmt.Errorf("流式文本事件解析失败：%w；原始帧=%s", err, sseFrameSnippet(raw))
+			log.Printf("[provider] 文本事件流解析失败：%v", message)
+			return message
 		}
 		if eventName == "error" {
 			if err := validateTextPayload(payload); err != nil {
@@ -1324,7 +1345,9 @@ func (p *streamingTextDeltaParser) consumeFrame(frame string) {
 		return
 	}
 	var payload map[string]interface{}
-	if json.Unmarshal([]byte(raw), &payload) != nil {
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		// 这条路径选择跳过坏帧继续出字（不影响本次结果），但必须留下原始帧，否则问题完全静默。
+		log.Printf("[provider] 文本增量帧解析失败（已跳过）：%v；原始帧=%s", err, sseFrameSnippet(raw))
 		return
 	}
 	if delta := streamingTextDelta(p.protocol, eventName, payload); delta != "" {
