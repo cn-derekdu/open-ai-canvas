@@ -10,17 +10,18 @@ func TestLoadAgentPoliciesUsesDocumentMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 上游本轮把系统策略改到 12（ask_user.fields 动态表单），本仓库另有「审批与权限模式」一节，
-	// 两侧内容已合并，故取 13。改这个数字必须同时改 md 的 front matter。
-	if system.ID != "cloud-agent-system" || system.Version != 13 || media.ID != "cloud-agent-media" || media.Version != 4 {
+	// 系统策略：上游停在 12，本仓库另有「审批与权限模式」一节且已在 12 之上追加内容，故取 13。
+	// 媒体策略：上游本轮把 yingce-agent 相关语义并入并改到 5，故取 5。
+	// 改这两个数字必须同时改对应 md 的 front matter。
+	if system.ID != "cloud-agent-system" || system.Version != 13 || media.ID != "cloud-agent-media" || media.Version != 5 {
 		t.Fatalf("unexpected policy metadata: system=%+v media=%+v", system, media)
 	}
 	if strings.Contains(system.Text, "id: cloud-agent-system") || !strings.HasPrefix(system.Text, "# 影策 Cloud Agent") {
 		t.Fatalf("metadata leaked into compiled policy body: %q", system.Text)
 	}
 	for _, phrase := range []string{
-		"auto 会由服务端完成模型、能力、价格、预算和资源准入后直接提交",
-		"request_approval 必须等待界面独立审批",
+		"auto 只豁免其他画布修改，不豁免媒体生成",
+		"所有权限模式都必须等待界面独立审批",
 		"authorizedChargeMicrocredits / chargeLimitMicrocredits 是预授权或上限，不是实际消费",
 	} {
 		if !strings.Contains(media.Text, phrase) {

@@ -19,9 +19,10 @@ import (
 // 并同时并入上游 v35（auth_notifications）的建表需求——上游 v35 顺延后本应落在 v36，
 // 而 v36 已被二开占用，故合并为一个条目，不再单独登记上游 v35。
 // 上游后续新增版本仍按 +1 顺延（例如上游 v36 → 本地 v37）。
-// 本次同步（上游 d22f678d）：上游 v41 resource_thumbnail → 本地 v42，
-// 上游 v42 cloud_agent_pi_sessions → 本地 v43（checksum 一律保持上游原值）。
-const CurrentSchemaVersion int64 = 43
+// 上游 d22f678d：v41 resource_thumbnail → 本地 v42，v42 cloud_agent_pi_sessions → 本地 v43。
+// 上游 d01e60d8（v1.5.9）：v43 topup_sale_strategies → 本地 v44。
+// checksum 一律保持上游原值。
+const CurrentSchemaVersion int64 = 44
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -169,6 +170,10 @@ var schemaMigrations = []migration{
 	}},
 	{version: 43, name: "cloud_agent_pi_sessions", checksum: "sha256:cloud-agent-pi-sessions-v42-20260928", apply: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.CloudAgentPiSession{})
+	}},
+	// 上游 d01e60d8（v1.5.9）新增；因本地版本号整体 +1 顺延，落为 v44，checksum 保持上游原值。
+	{version: 44, name: "topup_sale_strategies", checksum: "sha256:topup-sale-strategies-v43-20260929", apply: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.TopupProduct{}, &model.PaymentOrder{})
 	}},
 }
 
