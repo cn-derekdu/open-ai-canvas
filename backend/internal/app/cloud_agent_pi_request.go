@@ -171,55 +171,20 @@ func (s *Service) buildFeaturesConfig(state *cloudAgentRuntime) map[string]any {
 
 // buildPermissionsConfig 构建权限配置
 func (s *Service) buildPermissionsConfig(userID, canvasID string) map[string]any {
-	// 从数据库读取实际权限
-	canvas, err := s.repo.GetCanvas(userID, canvasID)
-	if err != nil {
-		log.Printf("[Agent] failed to get canvas for permissions: %v", err)
-		// 返回最小权限集
-		return map[string]any{
-			"canReadCanvas":      true,
-			"canWriteCanvas":     false,
-			"canDeleteNodes":     false,
-			"canCreateNodes":     false,
-			"canMoveNodes":       false,
-			"canDuplicateNodes":  false,
-			"canManageRelations": false,
-			"canInviteUsers":     false,
-			"canExportCanvas":    true,
-			"maxTokenBudget":     200000,
-			"maxSteps":           50,
-		}
+	// 权限判定以真实画布存储为准：canvas_projects 是本系统画布的唯一真相。
+	// 历史实现读的是遗留的 canvases 表（model.Canvas），那条链路在新版里从不写入，
+	// 于是每次会话都会静默退化成"只读"的最小权限集，并在日志里刷一条 "canvas" 表不存在的 WARN。
+	// 未命中（画布不存在或不属于该用户）时保持同样的只读默认，与既有安全默认一致。
+	_, canvasErr := s.repo.CanvasProjectMetadataForUser(userID, canvasID)
+	isOwner := canvasErr == nil
+	if canvasErr != nil {
+		log.Printf("[Agent] canvas permission lookup missed; using read-only permissions: canvas=%s err=%v", canvasID, canvasErr)
 	}
 
-	// 检查用户是否是画布所有者
-	isOwner := canvas.UserID == userID
-
-	// 检查协作权限
+	// 协作权限：本系统画布没有角色表（分享走匿名 token），因此写权限等同"是否本人"。
 	canWrite := isOwner
 	canDelete := isOwner
 	canInvite := isOwner
-
-	if canvas.Metadata != nil {
-		if collaborators, ok := canvas.Metadata["collaborators"].([]any); ok {
-			for _, collab := range collaborators {
-				if collabMap, ok := collab.(map[string]any); ok {
-					if collabUserID, _ := collabMap["userId"].(string); collabUserID == userID {
-						role, _ := collabMap["role"].(string)
-						switch role {
-						case "admin":
-							canWrite = true
-							canDelete = true
-							canInvite = true
-						case "editor":
-							canWrite = true
-						case "viewer":
-							// 只读权限
-						}
-					}
-				}
-			}
-		}
-	}
 
 	return map[string]any{
 		"canReadCanvas":      true,

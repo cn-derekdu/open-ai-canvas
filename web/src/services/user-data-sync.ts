@@ -34,6 +34,11 @@ let activeRemoteUserId = "";
 type RemoteUserDataPhase = "inactive" | "hydrating" | "ready" | "failed";
 
 let remoteUserDataPhase: RemoteUserDataPhase = "inactive";
+// 基线建立的失败原因。只写 console 的话，用户与实际排查者都只能看到
+// "云端数据基线尚未建立"这个次级症状，无法判断是本地并发修改、网络还是服务端。
+let remoteUserDataFailure: Error | null = null;
+// 失败后的自动重建节流时间点，避免每次同步 tick 都重试 hydrate。
+let remoteUserDataRetryAt = 0;
 let syncTimer: number | null = null;
 let syncPromise: Promise<void> | null = null;
 let syncQueued = false;
@@ -343,6 +348,7 @@ export async function syncRemoteUserData(userId?: string | null) {
             return;
         }
         remoteUserDataPhase = "hydrating";
+        remoteUserDataFailure = null;
         try {
             // 登录只拉一次聚合快照。摘要列表再逐条请求详情会把 N 条数据放大成 2N+2 个请求，
             // 并且会在登录阶段同时触发大量媒体解析，任何一项失败都会污染登录结果。
@@ -371,6 +377,10 @@ export async function syncRemoteUserData(userId?: string | null) {
             remoteUserDataPhase = "ready";
         } catch (error) {
             remoteUserDataPhase = "failed";
+            remoteUserDataFailure = error instanceof Error ? error : new Error(String(error));
+            // 真实原因必须留在可观测的地方：以前只有调用方那句 console.warn，
+            // 于是用户和实际排查者都只能看到"云端数据基线尚未建立"这个次级症状。
+            console.error("远端用户数据基线建立失败", remoteUserDataFailure);
             throw error;
         }
     });
@@ -406,6 +416,8 @@ export function resetRemoteUserDataSync() {
     remoteProjectLoadPromises.clear();
     activeRemoteUserId = "";
     remoteUserDataPhase = "inactive";
+    remoteUserDataFailure = null;
+    remoteUserDataRetryAt = 0;
     acknowledgedAssets.clear();
     acknowledgedProjects.clear();
     if (syncTimer) {
@@ -442,7 +454,15 @@ export function withRemoteUserDataSyncExclusive<T>(operation: () => Promise<T>):
 }
 
 export function scheduleRemoteUserDataSync() {
-    if (!activeRemoteUserId || remoteUserDataPhase !== "ready") return;
+    if (!activeRemoteUserId) return;
+    if (remoteUserDataPhase === "failed") {
+        // 基线建立失败不应永久闸住所有写入：退避 30 秒后自动重建一次。
+        if (Date.now() < remoteUserDataRetryAt) return;
+        remoteUserDataRetryAt = Date.now() + 30000;
+        void syncRemoteUserData(activeRemoteUserId).catch((error) => console.warn("远端用户数据基线重建失败", error));
+        return;
+    }
+    if (remoteUserDataPhase !== "ready") return;
     if (syncPromise) {
         syncQueued = true;
         return;
@@ -507,6 +527,11 @@ export function retryRemoteUserDataSync(projectId?: string) {
     if (syncTimer) {
         window.clearTimeout(syncTimer);
         syncTimer = null;
+    }
+    if (activeRemoteUserId && remoteUserDataPhase !== "ready") {
+        // 用户在状态条上点"重试"：先重建基线（会先归档本地草稿），再走常规保存。
+        remoteUserDataRetryAt = 0;
+        return syncRemoteUserData(activeRemoteUserId).then(() => saveRemoteUserDataNow(projectId));
     }
     return saveRemoteUserDataNow(projectId);
 }
@@ -935,7 +960,11 @@ async function saveRemoteUserDataBatch(uploaded: Map<string, string>, options: {
 }
 
 function requireRemoteUserDataBaseline() {
-    if (remoteUserDataPhase !== "ready") throw new Error("云端数据基线尚未建立，已停止写入");
+    if (remoteUserDataPhase !== "ready") {
+        // 把真实失败原因带进提示：否则用户只能看到"基线尚未建立"，无从判断该刷新还是该等。
+        const reason = remoteUserDataFailure?.message.trim();
+        throw new Error(reason ? `云端数据基线尚未建立，已停止写入：${reason}` : "云端数据基线尚未建立，已停止写入");
+    }
 }
 
 function sameEntitySnapshot<T>(acknowledged: T | undefined, current: T) {
