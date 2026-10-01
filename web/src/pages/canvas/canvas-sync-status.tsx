@@ -19,17 +19,20 @@ export function CanvasSyncStatus({ projectId, onLoadLatest, onOpenVersions }: { 
     const error = phase === "error";
     const retryScheduled = error && progress?.message?.includes("自动重试");
     const saving = phase === "pending" || phase === "saving" || phase === "uploading";
-    const tone = conflict ? "conflict" : error ? "error" : saving ? "pending" : phase === "done" ? "done" : "idle";
-    const label = conflict ? "需要处理冲突" : error ? "云端保存失败" : saving ? "正在同步" : phase === "done" ? "已保存到云端" : "尚未同步";
+    const reconciling = phase === "reconciling";
+    const tone = conflict ? "conflict" : error ? "error" : saving || reconciling ? "pending" : phase === "done" ? "done" : "idle";
+    const label = conflict ? "需要处理冲突" : error ? "云端保存失败" : reconciling ? "正在自动合并" : saving ? "正在同步" : phase === "done" ? "已保存到云端" : "尚未同步";
     const description = conflict
-        ? "本地修改没有被覆盖，已保存为本地草稿。"
+        ? "本地与云端修改了同一字段，系统已保留本地草稿。"
         : error
           ? progress?.message || "本地内容仍然保留，云端暂未确认。"
-          : saving
-            ? progress?.message || "正在把本地修改同步到云端。"
-            : phase === "done"
-              ? progress?.message || "当前画布与云端版本一致。"
-              : "本地内容会先保存到浏览器，再尝试同步到云端。";
+          : reconciling
+            ? progress?.message || "正在合并云端与本地修改，完成后会自动继续保存。"
+            : saving
+              ? progress?.message || "正在把本地修改同步到云端。"
+              : phase === "done"
+                ? progress?.message || "当前画布与云端版本一致。"
+                : "本地内容会先保存到浏览器，再尝试同步到云端。";
 
     const run = async (operation: () => Promise<unknown>) => {
         setBusy(true);
